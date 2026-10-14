@@ -1,7 +1,7 @@
 """Disk cache utility for API responses and computation results.
 
 This module provides a simple interface for caching using diskcache.
-Can be used by translation, ASR, and other modules that need caching.
+Can be used by LLM, ASR, and other modules that need caching.
 """
 
 import functools
@@ -39,23 +39,17 @@ def is_cache_enabled() -> bool:
 _llm_cache = Cache(str(CACHE_PATH / "llm_translation"))
 _asr_cache = Cache(str(CACHE_PATH / "asr_results"), tag_index=True)
 _tts_cache = Cache(str(CACHE_PATH / "tts_audio"))
-_translate_cache = Cache(str(CACHE_PATH / "translate_results"))
 _version_state_cache = Cache(str(CACHE_PATH / "version_state"))
 
 
 def get_llm_cache() -> Cache:
-    """Get LLM translation cache instance."""
+    """Get LLM response cache instance."""
     return _llm_cache
 
 
 def get_asr_cache() -> Cache:
     """Get ASR results cache instance."""
     return _asr_cache
-
-
-def get_translate_cache() -> Cache:
-    """Get translate cache instance."""
-    return _translate_cache
 
 
 def get_tts_cache() -> Cache:

@@ -8,15 +8,15 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from videocaptioner.core.entities import (
     BatchTaskStatus,
     BatchTaskType,
-    TranscribeTask,
 )
 from videocaptioner.core.utils.logger import setup_logger
 from videocaptioner.ui.task_factory import TaskFactory
-from videocaptioner.ui.thread.subtitle_thread import SubtitleThread
 from videocaptioner.ui.thread.transcript_thread import TranscriptThread
-from videocaptioner.ui.thread.video_synthesis_thread import VideoSynthesisThread
 
 logger = setup_logger("batch_process_thread")
+
+# 当前批量处理支持的任务类型
+SUPPORTED_BATCH_TASK_TYPES = (BatchTaskType.TRANSCRIBE,)
 
 
 class BatchTask:
@@ -79,12 +79,8 @@ class BatchProcessThread(QThread):
 
             if batch_task.task_type == BatchTaskType.TRANSCRIBE:
                 self._handle_transcribe_task(batch_task)
-            elif batch_task.task_type == BatchTaskType.SUBTITLE:
-                self._handle_subtitle_task(batch_task)
-            elif batch_task.task_type == BatchTaskType.TRANS_SUB:
-                self._handle_trans_sub_task(batch_task)
-            elif batch_task.task_type == BatchTaskType.FULL_PROCESS:
-                self._handle_full_process_task(batch_task)
+            else:
+                raise ValueError(f"不支持的批量任务类型: {batch_task.task_type}")
 
         except Exception as e:
             logger.exception(f"处理任务失败: {str(e)}")
@@ -130,184 +126,6 @@ class BatchProcessThread(QThread):
         )
 
         thread.start()
-
-    def _handle_subtitle_task(self, batch_task: BatchTask):
-        logger.info(f"开始处理字幕任务: {batch_task.file_path}")
-
-        task = self.factory.create_subtitle_task(batch_task.file_path)
-        thread = SubtitleThread(task)
-        batch_task.current_thread = thread
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(  # type: ignore
-            partial(self._on_progress_wrapper, batch_task)  # type: ignore
-        )
-        thread.error.connect(  # type: ignore
-            partial(self._on_error_wrapper, batch_task)  # type: ignore
-        )
-        thread.finished.connect(  # type: ignore
-            partial(self._on_finished_wrapper, batch_task)  # type: ignore
-        )
-
-        thread.start()
-
-    def _handle_trans_sub_task(self, batch_task: BatchTask):
-        trans_task = self.factory.create_transcribe_task(
-            batch_task.file_path, need_next_task=True
-        )
-        thread = TranscriptThread(trans_task)
-        batch_task.current_thread = thread
-        self.current_tasks[batch_task.file_path] = batch_task
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(
-            partial(self._on_trans_sub_progress_wrapper, batch_task)
-        )
-        thread.error.connect(partial(self._on_error_wrapper, batch_task))
-        thread.finished.connect(
-            partial(self._on_trans_sub_finished_wrapper, batch_task)
-        )
-
-        thread.start()
-
-    def _on_trans_sub_progress_wrapper(
-        self, batch_task: BatchTask, progress: int, message: str
-    ):
-        """转录+字幕任务进度包装器"""
-        progress = progress // 2  # 转录占50%进度
-        self.task_progress.emit(batch_task.file_path, progress, message)
-
-    def _on_trans_sub_finished_wrapper(
-        self, batch_task: BatchTask, task: TranscribeTask
-    ):
-        """转录+字幕任务转录完成包装器"""
-        if batch_task.current_thread in self.threads:
-            self.threads.remove(batch_task.current_thread)
-
-        # 创建字幕任务
-        if not task.output_path:
-            raise ValueError("Task output_path is None")
-        subtitle_task = self.factory.create_subtitle_task(
-            task.output_path, batch_task.file_path, need_next_task=True
-        )
-        thread = SubtitleThread(subtitle_task)
-        batch_task.current_thread = thread
-        self.current_tasks[batch_task.file_path] = batch_task
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(
-            partial(self._on_trans_sub_subtitle_progress_wrapper, batch_task)
-        )
-        thread.error.connect(partial(self._on_error_wrapper, batch_task))
-        thread.finished.connect(partial(self._on_finished_wrapper, batch_task))
-
-        thread.start()
-
-    def _on_trans_sub_subtitle_progress_wrapper(
-        self, batch_task: BatchTask, progress: int, message: str
-    ):
-        """转录+字幕任务字幕进度包装器"""
-        progress = 50 + progress // 2  # 字幕处理占后50%进度
-        self.task_progress.emit(batch_task.file_path, progress, message)
-
-    def _handle_full_process_task(self, batch_task: BatchTask):
-        # 首先创建转录任务
-        trans_task = self.factory.create_transcribe_task(
-            batch_task.file_path, need_next_task=True
-        )
-        thread = TranscriptThread(trans_task)
-        batch_task.current_thread = thread
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(partial(self.on_full_process_progress, batch_task))
-        thread.error.connect(partial(self._on_error_wrapper, batch_task))
-        thread.finished.connect(partial(self.on_full_process_finished, batch_task))
-
-        thread.start()
-
-    def on_full_process_progress(
-        self, batch_task: BatchTask, progress: int, message: str
-    ):
-        """处理全流程任务的转录进度"""
-        if batch_task.status == BatchTaskStatus.RUNNING:
-            progress_value = progress // 3  # 转录占33%进度
-            self.task_progress.emit(batch_task.file_path, progress_value, message)
-
-    def on_full_process_finished(self, batch_task: BatchTask, task: TranscribeTask):
-        """处理转录完成后开始字幕任务"""
-        if batch_task.current_thread in self.threads:
-            self.threads.remove(batch_task.current_thread)
-
-        # 转录完成后创建字幕任务
-        if not task.output_path:
-            raise ValueError("Task output_path is None")
-        subtitle_task = self.factory.create_subtitle_task(
-            task.output_path,
-            batch_task.file_path,
-            need_next_task=True,
-        )
-        thread = SubtitleThread(subtitle_task)
-        batch_task.current_thread = thread
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(
-            partial(self.on_full_process_subtitle_progress, batch_task)
-        )
-        thread.error.connect(partial(self._on_error_wrapper, batch_task))
-        thread.finished.connect(
-            partial(self.on_full_process_subtitle_finished, batch_task)
-        )
-
-        thread.start()
-
-    def on_full_process_subtitle_progress(
-        self, batch_task: BatchTask, progress: int, message: str
-    ):
-        """处理全流程任务中字幕部分的进度"""
-        if batch_task.status == BatchTaskStatus.RUNNING:
-            progress_value = 33 + progress // 3  # 字幕处理占中间33%进度
-            self.task_progress.emit(batch_task.file_path, progress_value, message)
-
-    def on_full_process_subtitle_finished(
-        self, batch_task: BatchTask, video_path: str, subtitle_path: str
-    ):
-        """处理字幕完成后开始视频合成任务"""
-        if batch_task.current_thread in self.threads:
-            self.threads.remove(batch_task.current_thread)
-
-        # 字幕完成后创建视频合成任务
-        synthesis_task = self.factory.create_synthesis_task(video_path, subtitle_path)
-        thread = VideoSynthesisThread(synthesis_task)
-        batch_task.current_thread = thread
-
-        # 保存线程引用
-        self.threads.append(thread)
-
-        thread.progress.connect(
-            partial(self.on_full_process_synthesis_progress, batch_task)
-        )
-        thread.error.connect(partial(self._on_error_wrapper, batch_task))
-        thread.finished.connect(partial(self._on_finished_wrapper, batch_task))
-
-        thread.start()
-
-    def on_full_process_synthesis_progress(
-        self, batch_task: BatchTask, progress: int, message: str
-    ):
-        """处理全流程任务中视频合成部分的进度"""
-        if batch_task.status == BatchTaskStatus.RUNNING:
-            progress_value = 66 + progress // 3  # 视频合成占最后34%进度
-            self.task_progress.emit(batch_task.file_path, progress_value, message)
 
     def stop_task(self, file_path: str):
         if file_path in self.current_tasks:

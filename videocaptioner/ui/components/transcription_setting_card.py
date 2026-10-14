@@ -12,7 +12,6 @@ from videocaptioner.core.entities import (
 from videocaptioner.core.utils.platform_utils import is_macos
 
 from .FasterWhisperSettingWidget import FasterWhisperSettingWidget
-from .WhisperAPISettingWidget import WhisperAPISettingWidget
 from .WhisperCppSettingWidget import WhisperCppSettingWidget
 
 
@@ -31,7 +30,6 @@ class TranscriptionSettingCard(QWidget):
         # 添加各个设置界面
         self.empty_widget = QWidget(self)  # 添加空白页面作为默认显示
         self.whisper_cpp_widget = WhisperCppSettingWidget(self)
-        self.whisper_api_widget = WhisperAPISettingWidget(self)
 
         # FasterWhisper 在 macOS 上不可用
         self.faster_whisper_widget: Optional[FasterWhisperSettingWidget] = None
@@ -40,7 +38,6 @@ class TranscriptionSettingCard(QWidget):
 
         self.stacked_widget.addWidget(self.empty_widget)  # 添加空白页面
         self.stacked_widget.addWidget(self.whisper_cpp_widget)
-        self.stacked_widget.addWidget(self.whisper_api_widget)
         if self.faster_whisper_widget is not None:
             self.stacked_widget.addWidget(self.faster_whisper_widget)
 
@@ -50,8 +47,6 @@ class TranscriptionSettingCard(QWidget):
         # 切换对应的设置界面
         if value == TranscribeModelEnum.WHISPER_CPP.value:
             self.stacked_widget.setCurrentWidget(self.whisper_cpp_widget)
-        elif value == TranscribeModelEnum.WHISPER_API.value:
-            self.stacked_widget.setCurrentWidget(self.whisper_api_widget)
         elif value == TranscribeModelEnum.FASTER_WHISPER.value:
             self.stacked_widget.setCurrentWidget(self.faster_whisper_widget)
         else:

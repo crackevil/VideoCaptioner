@@ -1,0 +1,23 @@
+# Runtime dependencies for VideoCaptioner
+# Mirrors [project.dependencies] in pyproject.toml
+# Python: >=3.10,<3.13
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# NOTE: This file is derived from pyproject.toml; prefer `uv sync` when possible.
+
+requests>=2.32.4
+diskcache>=5.6.3
+langdetect>=1.0.9
+pydub>=0.25.1
+platformdirs>=4.0.0
+tomli>=2.0.0; python_version < '3.11'
+PyQt5==5.15.11
+PyQt-Fluent-Widgets==1.11.3
+psutil>=7.0.0
+GPUtil>=1.4.0
+
+# Mirrors [tool.uv].override-dependencies in pyproject.toml
+PyQt5-Qt5==5.15.2; sys_platform == 'win32'
+PyQt5-Qt5>=5.15.11; sys_platform != 'win32'

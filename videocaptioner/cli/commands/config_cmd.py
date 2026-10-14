@@ -130,22 +130,7 @@ def _interactive_init(args: Namespace, config_data: dict) -> int:
 
     try:
         _set_nested(config_data, "transcribe.asr", _prompt("ASR engine [bijian]: ", "bijian"))
-        _set_nested(config_data, "subtitle.optimize", _yes_no("Enable AI subtitle polish? It fixes obvious ASR errors and punctuation. [Y/n]: ", True))
-        _set_nested(config_data, "subtitle.split", _yes_no("Enable subtitle re-segmentation? [Y/n]: ", True))
-        translator = _prompt("Translator [bing] (bing/google/llm): ", "bing")
-        _set_nested(config_data, "translate.service", translator)
         print()
-        print("LLM config is used for AI subtitle polish, LLM translation, and --adapt-length.")
-        _set_nested(config_data, "llm.api_key", _prompt("LLM API key [skip]: "))
-        _set_nested(config_data, "llm.api_base", _prompt(f"LLM API base [{DEFAULTS['llm']['api_base']}]: ", DEFAULTS["llm"]["api_base"]))
-        _set_nested(config_data, "llm.model", _prompt(f"LLM model [{DEFAULTS['llm']['model']}]: ", DEFAULTS["llm"]["model"]))
-        print()
-        print("Dubbing config is used by 'dub' and 'process --dub-only'.")
-        _set_nested(config_data, "dubbing.preset", _prompt("Dubbing preset [edge-cn-female] (no API key): ", "edge-cn-female"))
-        _set_nested(config_data, "dubbing.api_key", _prompt("TTS API key [skip; only needed for SiliconFlow/Gemini]: "))
-        _set_nested(config_data, "dubbing.voice", _prompt("Default voice [xiaoxiao]: ", "xiaoxiao"))
-        _set_nested(config_data, "dubbing.timing", _prompt("Timing [balanced] (balanced/strict/natural/none): ", "balanced"))
-        _set_nested(config_data, "dubbing.audio_mode", _prompt("Audio mode [replace] (replace/mix/duck): ", "replace"))
     except (EOFError, KeyboardInterrupt):
         return EXIT.USAGE_ERROR
 
@@ -162,23 +147,11 @@ def _yes_no(prompt: str, default: bool) -> bool:
 
 def _build_onboarding_config(args: Namespace) -> dict:
     config_data = deepcopy(DEFAULTS)
-    _set_nested(config_data, "translate.service", "bing")
-    _set_nested(config_data, "dubbing.preset", "edge-cn-female")
-    _set_nested(config_data, "dubbing.voice", "xiaoxiao")
-    _set_nested(config_data, "dubbing.timing", "balanced")
-    _set_nested(config_data, "dubbing.audio_mode", "replace")
 
     mappings = {
-        "llm_api_key": "llm.api_key",
-        "llm_api_base": "llm.api_base",
-        "llm_model": "llm.model",
+
         "asr": "transcribe.asr",
-        "translator": "translate.service",
-        "tts_api_key": "dubbing.api_key",
-        "dub_preset": "dubbing.preset",
-        "voice": "dubbing.voice",
-        "timing": "dubbing.timing",
-        "audio_mode": "dubbing.audio_mode",
+
     }
     for attr, key in mappings.items():
         value = getattr(args, attr, None)
@@ -200,10 +173,9 @@ def _render_onboarding_template(config_data: dict) -> str:
     f.write("# VideoCaptioner configuration\n")
     f.write("# Priority: CLI flags > environment variables > this file > built-in defaults.\n")
     f.write("# Keep API keys private. This file is written with 0600 permissions on Unix.\n\n")
-    f.write("# [llm] is used for AI subtitle polish, LLM translation, reflective translation, and dubbing length adaptation.\n")
-    f.write("# [whisper_api] is only needed when transcribe.asr = \"whisper-api\".\n")
+    f.write("# [llm] is used for AI subtitle polish and dubbing length adaptation.\n")
     f.write("# [transcribe] controls speech-to-text. bijian/jianying need no key; whisper-cpp needs a local binary/model.\n")
-    f.write("# [subtitle] split and AI polish use LLM; [translate] can use bing/google/llm.\n")
+    f.write("# [subtitle] split and AI polish use LLM.\n")
     f.write("# [synthesize] controls subtitle embedding/burning.\n")
     f.write("# [dubbing] preset selects provider/model/voice defaults; edge-* presets need no API key but require network access.\n")
     f.write("# timing controls speech fitting; audio_mode controls original audio.\n\n")
@@ -221,11 +193,6 @@ def _user_facing_config(config_data: dict) -> dict:
             "api_base": config_data["llm"]["api_base"],
             "model": config_data["llm"]["model"],
         },
-        "whisper_api": {
-            "api_key": config_data["whisper_api"]["api_key"],
-            "api_base": config_data["whisper_api"]["api_base"],
-            "model": config_data["whisper_api"]["model"],
-        },
         "transcribe": {
             "asr": config_data["transcribe"]["asr"],
         },
@@ -234,10 +201,6 @@ def _user_facing_config(config_data: dict) -> dict:
             "split": config_data["subtitle"]["split"],
             "thread_num": config_data["subtitle"]["thread_num"],
             "batch_size": config_data["subtitle"]["batch_size"],
-        },
-        "translate": {
-            "service": config_data["translate"]["service"],
-            "reflect": config_data["translate"]["reflect"],
         },
         "synthesize": {
             "subtitle_mode": config_data["synthesize"]["subtitle_mode"],

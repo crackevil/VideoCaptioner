@@ -58,15 +58,6 @@ def run(args: Namespace, config: dict) -> int:
         output.info(f"ASR engine: {asr_engine}")
         output.info(f"Language: {language}")
 
-    # Setup environment for Whisper API
-    if asr_engine == "whisper-api":
-        whisper_key = get(config, "whisper_api.api_key", "")
-        whisper_base = get(config, "whisper_api.api_base", "")
-        if whisper_key:
-            os.environ["OPENAI_API_KEY"] = whisper_key
-        if whisper_base:
-            os.environ["OPENAI_BASE_URL"] = whisper_base
-
     # Build TranscribeConfig
     from videocaptioner.core.entities import (
         FasterWhisperModelEnum,
@@ -78,7 +69,6 @@ def run(args: Namespace, config: dict) -> int:
 
     asr_map = {
         "faster-whisper": TranscribeModelEnum.FASTER_WHISPER,
-        "whisper-api": TranscribeModelEnum.WHISPER_API,
         "bijian": TranscribeModelEnum.BIJIAN,
         "jianying": TranscribeModelEnum.JIANYING,
         "whisper-cpp": TranscribeModelEnum.WHISPER_CPP,
@@ -112,11 +102,6 @@ def run(args: Namespace, config: dict) -> int:
         faster_whisper_prompt=get(config, "transcribe.faster_whisper.prompt", ""),
         # WhisperCpp options
         whisper_model=wcpp_model_enum,
-        # Whisper API options
-        whisper_api_key=get(config, "whisper_api.api_key", ""),
-        whisper_api_base=get(config, "whisper_api.api_base", ""),
-        whisper_api_model=get(config, "whisper_api.model", "whisper-1"),
-        whisper_api_prompt=get(config, "whisper_api.prompt", ""),
     )
 
 

@@ -144,8 +144,7 @@ def verify_bundle() -> None:
     data_root = bundle / "_internal"
     required = [
         data_root / "resource" / "assets" / "logo.png",
-        data_root / "resource" / "fonts" / "NotoSansSC-Regular.ttf",
-        data_root / "resource" / "subtitle_style" / "ass-default.json",
+
         data_root / "resource" / "bin" / ("ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg"),
         data_root / "resource" / "bin" / ("ffprobe.exe" if platform.system() == "Windows" else "ffprobe"),
     ]

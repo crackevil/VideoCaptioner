@@ -10,7 +10,6 @@ All提示词以 Markdown 文件形式存储，支持模板变量替换。
 
     # 带参数替换
     prompt = get_prompt("split/semantic", max_word_count_cjk=18)
-    prompt = get_prompt("translate/reflect", target_language="简体中文")
 """
 
 import functools
@@ -57,7 +56,6 @@ def get_prompt(prompt_path: str, **kwargs) -> str:
     Examples:
         >>> get_prompt("split/semantic")
         >>> get_prompt("split/semantic", max_word_count_cjk=18, max_word_count_english=12)
-        >>> get_prompt("translate/reflect", target_language="简体中文", custom_prompt="保持术语")
     """
     # 加载原始提示词
     raw_prompt = _load_prompt_file(prompt_path)

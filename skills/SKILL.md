@@ -51,10 +51,6 @@ videocaptioner subtitle input.srt --translator bing --target-language en --layou
 
 # Free Google → Japanese, translation only (discard original text)
 videocaptioner subtitle input.srt --translator google --target-language ja --no-optimize --layout target-only -o output_ja.srt
-
-# High quality LLM translation with reflective mode
-videocaptioner subtitle input.srt --translator llm --target-language en --reflect \
-  --api-key $OPENAI_API_KEY -o output_en.srt
 ```
 
 ### 4. Full pipeline with beautiful styled subtitles
@@ -101,11 +97,13 @@ videocaptioner synthesize video.mp4 -s video_en.srt --subtitle-mode hard \
 videocaptioner process podcast.mp3 --asr bijian --translator bing --target-language en -o ./output/
 ```
 
-### 8. Transcribe other languages (whisper-api)
+### 8. Transcribe other languages (whisper-cpp)
+
+Requires a local whisper.cpp binary and model.
 
 ```bash
-videocaptioner transcribe french_video.mp4 --asr whisper-api \
-  --whisper-api-key $OPENAI_API_KEY --language fr -o french.srt
+videocaptioner transcribe french_video.mp4 --asr whisper-cpp \
+  --language fr -o french.srt
 ```
 
 ### 9. Only optimize subtitles with LLM (fix ASR errors, no translation)
@@ -126,7 +124,7 @@ videocaptioner synthesize video.mp4 -s subtitle.srt --subtitle-mode hard \
 
 | Command | Purpose |
 |---------|---------|
-| `transcribe` | Speech → subtitles. Engines: `bijian`(free) `jianying`(free) `whisper-api` `whisper-cpp` |
+| `transcribe` | Speech → subtitles. Engines: `bijian`(free) `jianying`(free) `whisper-cpp` |
 | `subtitle` | Optimize (LLM) and/or translate (LLM/Bing/Google) subtitle files |
 | `synthesize` | Burn subtitles into video with customizable styles |
 | `process` | Full pipeline: transcribe → optimize → translate → synthesize |

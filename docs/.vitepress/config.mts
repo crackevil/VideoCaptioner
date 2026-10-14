@@ -256,7 +256,6 @@ export default defineConfig({
                 { text: '快速开始', link: '/guide/getting-started' },
                 { text: '快速示例', link: '/guide/quick-example' },
                 { text: 'LLM API 配置', link: '/guide/llm-config' },
-                { text: 'Cookie 配置', link: '/guide/cookies-config' },
                 { text: '基础配置', link: '/guide/configuration' },
                 { text: '工作流程', link: '/guide/workflow' },
                 { text: '常见问题', link: '/guide/faq' }
@@ -277,8 +276,7 @@ export default defineConfig({
               items: [
                 { text: 'LLM 配置', link: '/config/llm' },
                 { text: '语音识别配置', link: '/config/asr' },
-                { text: '翻译配置', link: '/config/translator' },
-                { text: 'Cookie 配置', link: '/config/cookies' }
+                { text: '翻译配置', link: '/config/translator' }
               ]
             }
           ],
@@ -367,8 +365,7 @@ export default defineConfig({
               items: [
                 { text: 'LLM Configuration', link: '/en/config/llm' },
                 { text: 'ASR Configuration', link: '/en/config/asr' },
-                { text: 'Translation', link: '/en/config/translator' },
-                { text: 'Cookie Setup', link: '/en/config/cookies' }
+                { text: 'Translation', link: '/en/config/translator' }
               ]
             }
           ],

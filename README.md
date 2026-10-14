@@ -27,13 +27,10 @@ videocaptioner subtitle input.srt --translator bing --target-language en
 videocaptioner process video.mp4 --target-language ja
 
 # 字幕烧录到视频
-videocaptioner synthesize video.mp4 -s subtitle.srt
-
-# 下载在线视频
-videocaptioner download "https://youtube.com/watch?v=xxx"
+videocaptioner process video.mp4 --subtitle-mode hard --style anime
 ```
 
-需要 LLM 功能（字幕优化、大模型翻译）时，配置 API Key：
+需要 LLM 功能（字幕断句、字幕优化）时，配置 API Key：
 
 ```bash
 videocaptioner config set llm.api_key <your-key>
@@ -49,12 +46,10 @@ videocaptioner config set llm.model gpt-4o-mini
 | 命令 | 说明 |
 |------|------|
 | `gui` | 打开桌面版。也可以直接运行 `videocaptioner-gui` |
-| `transcribe` | 语音转字幕。引擎：`faster-whisper`、`whisper-api`、`bijian`（免费）、`jianying`（免费）、`whisper-cpp` |
-| `subtitle` | 字幕优化/翻译。翻译服务：`llm`、`bing`（免费）、`google`（免费） |
-| `dub` | 根据字幕生成配音音轨或配音视频 |
-| `synthesize` | 字幕烧录到视频（软字幕/硬字幕） |
-| `process` | 全流程处理 |
-| `download` | 下载 YouTube、B站等平台视频 |
+| `transcribe` | 语音转字幕。引擎：`faster-whisper`、`bijian`（免费）、`jianying`（免费）、`whisper-cpp` |
+| `subtitle` | 字幕优化/翻译。翻译服务：`bing`（免费）、`google`（免费） |
+
+| `process` | 全流程处理（含字幕烧录/嵌入，软字幕/硬字幕） |
 | `config` | 配置管理（`show`、`set`、`get`、`path`、`init`） |
 
 运行 `videocaptioner <命令> --help` 查看完整参数。完整 CLI 文档见 [docs/cli.md](docs/cli.md)。
@@ -92,7 +87,7 @@ curl -fsSL https://raw.githubusercontent.com/WEIFENG2333/VideoCaptioner/master/s
 
 ## LLM API 配置
 
-LLM 仅用于字幕优化和大模型翻译，免费功能（必剪识别、必应翻译）无需配置。
+LLM 仅用于字幕断句和字幕优化，免费功能（必剪识别、必应/谷歌翻译）无需配置。
 
 支持所有 OpenAI 兼容接口的服务商：
 

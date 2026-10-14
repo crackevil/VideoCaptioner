@@ -19,7 +19,8 @@
 graph LR
     A[导入视频] --> B[Whisper 转录]
     B --> C[LLM 智能断句]
-    C --> D[LLM 优化翻译]
+    C --> D[LLM 优化]
+    D --> F2[翻译]
     D --> E[视频合成]
     E --> F[完成]
 ```

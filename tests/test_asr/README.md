@@ -11,28 +11,11 @@ tests/
 │       └── zh.mp3           # Shared test audio file (Chinese speech)
 └── test_asr/
     ├── conftest.py              # Shared fixtures and utilities
-    ├── test_whisper_api_asr.py  # WhisperAPI tests (OpenAI-compatible)
     ├── test_bcut_asr.py         # BcutASR tests (Bilibili public API)
     └── test_jianying_asr.py     # JianYingASR tests (CapCut public API)
 ```
 
 ## Environment Variables
-
-### WhisperAPI Tests
-
-Required environment variables:
-
-- `OPENAI_BASE_URL`: OpenAI API base URL (e.g., `https://api.openai.com/v1`)
-- `OPENAI_API_KEY`: OpenAI API key
-- `OPENAI_MODEL`: (Optional) Model name, defaults to `whisper-1`
-
-Example `.env`:
-
-```bash
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=whisper-1
-```
 
 ### Public API Tests (Bcut, JianYing)
 
@@ -53,7 +36,7 @@ pytest tests/test_asr/ -v
 ### Run specific test file
 
 ```bash
-pytest tests/test_asr/test_whisper_api_asr.py -v
+pytest tests/test_asr/test_bcut_asr.py -v
 ```
 
 ### Run with output
@@ -83,7 +66,7 @@ All tests follow this structure:
 1. **Type Annotations**: All parameters and return types are annotated
 
    ```python
-   def test_transcribe_audio(self, whisper_api: WhisperAPI) -> None:
+   def test_transcribe_audio(self, bcut_asr: BcutASR) -> None:
    ```
 
 2. **English Documentation**: All docstrings and comments in English
@@ -92,7 +75,7 @@ All tests follow this structure:
    """Test basic audio transcription functionality.
 
    Args:
-       whisper_api: WhisperAPI instance
+       bcut_asr: BcutASR instance
    """
    ```
 
@@ -100,7 +83,7 @@ All tests follow this structure:
 
    ```python
    print("\n" + "=" * 60)
-   print(f"WhisperAPI Transcription Results:")
+   print(f"BcutASR Transcription Results:")
    print(f"  Total segments: {len(result.segments)}")
    print("=" * 60)
    ```
@@ -116,19 +99,12 @@ All tests follow this structure:
   - Contains actual speech content for meaningful ASR testing
   - Shared across all tests (session scope)
   - Located in shared fixtures directory for potential reuse by other test modules
-- `whisper_api`, `bcut_asr`, `jianying_asr`: Configured ASR instances
+- `bcut_asr`, `jianying_asr`: Configured ASR instances
 - `expected_asr_keywords`: Common keywords for result validation
 
 ### Skipping Tests
 
-Tests are skipped if required environment variables are not set:
-
-```python
-@pytest.fixture(autouse=True)
-def skip_if_no_env(self) -> None:
-    if not check_env_vars("OPENAI_BASE_URL", "OPENAI_API_KEY"):
-        pytest.skip("Environment variables not set")
-```
+Tests that need external services are skipped when required environment variables are not set.
 
 ## Platform-Specific Notes
 

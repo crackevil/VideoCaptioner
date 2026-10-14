@@ -1,8 +1,7 @@
 import os
-import subprocess
 from pathlib import Path
 
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QShowEvent
 from PyQt5.QtWidgets import (
     QHBoxLayout,
@@ -13,7 +12,6 @@ from PyQt5.QtWidgets import (
 )
 from qfluentwidgets import (
     BodyLabel,
-    ComboBox,
     ComboBoxSettingCard,
     HyperlinkButton,
     HyperlinkCard,
@@ -21,7 +19,6 @@ from qfluentwidgets import (
     InfoBarPosition,
     MessageBoxBase,
     ProgressBar,
-    PushButton,
     SettingCardGroup,
     SingleDirectionScrollArea,
     SubtitleLabel,
@@ -41,26 +38,7 @@ from videocaptioner.core.utils.platform_utils import open_folder
 from videocaptioner.ui.common.config import cfg
 from videocaptioner.ui.components.LineEditSettingCard import LineEditSettingCard
 from videocaptioner.ui.components.SpinBoxSettingCard import DoubleSpinBoxSettingCard
-from videocaptioner.ui.thread.file_download_thread import FileDownloadThread
-from videocaptioner.ui.thread.modelscope_download_thread import ModelscopeDownloadThread
 
-# 在文件开头添加常量定义
-FASTER_WHISPER_PROGRAMS = [
-    {
-        "label": "GPU（cuda） + CPU 版本",
-        "value": "faster-whisper-gpu.7z",
-        "type": "GPU",
-        "size": "1.35 GB",
-        "downloadLink": "https://modelscope.cn/models/bkfengg/whisper-cpp/resolve/master/Faster-Whisper-XXL_r245.2_windows.7z",
-    },
-    {
-        "label": "CPU版本",
-        "value": "faster-whisper.exe",
-        "type": "CPU",
-        "size": "78.7 MB",
-        "downloadLink": "https://modelscope.cn/models/bkfengg/whisper-cpp/resolve/master/whisper-faster.exe",
-    },
-]
 
 FASTER_WHISPER_MODELS = [
     {
@@ -149,34 +127,6 @@ def check_faster_whisper_exists() -> tuple[bool, list[str]]:
     return bool(installed_versions), installed_versions
 
 
-# 添加新的解压线程类
-class UnzipThread(QThread):
-    """7z解压线程"""
-
-    finished = pyqtSignal()  # 解压完成信号
-    error = pyqtSignal(str)  # 解压错误信号
-
-    def __init__(self, zip_file, extract_path):
-        super().__init__()
-        self.zip_file = zip_file
-        self.extract_path = extract_path
-
-    def run(self):
-        try:
-            subprocess.run(
-                ["7z", "x", self.zip_file, f"-o{self.extract_path}", "-y"],
-                check=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
-            # 删除压缩包
-            os.remove(self.zip_file)
-            self.finished.emit()
-        except subprocess.CalledProcessError as e:
-            self.error.emit(f"解压失败: {str(e)}")
-        except Exception as e:
-            self.error.emit(str(e))
-
-
 class FasterWhisperDownloadDialog(MessageBoxBase):
     """Faster Whisper 下载对话框"""
 
@@ -186,7 +136,6 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
     def __init__(self, parent=None, setting_widget=None):
         super().__init__(parent)
         self.widget.setMinimumWidth(600)
-        self.program_download_thread = None
         self.model_download_thread = None
         self._setup_ui()
         self._connect_signals()
@@ -240,28 +189,6 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
         else:
             desc_label = BodyLabel(self.tr("未下载Faster Whisper 程序"), self)
             layout.addWidget(desc_label)
-
-        # 下载控件
-        program_layout = QHBoxLayout()
-        self.program_combo = ComboBox(self)
-        self.program_combo.setFixedWidth(300)
-        self.program_combo.hide()
-
-        # 只显示未安装的版本
-        for program in FASTER_WHISPER_PROGRAMS:
-            version_type = program["type"]
-            if version_type not in installed_versions:
-                self.program_combo.addItem(f"{program['label']} ({program['size']})")
-
-        # 如果还有可下载的版本，显示下载控件
-        if self.program_combo.count() > 0:
-            self.program_combo.show()
-            self.program_download_btn = PushButton(self.tr("下载程序"), self)
-            self.program_download_btn.clicked.connect(self._start_download)
-            program_layout.addWidget(self.program_combo)
-            program_layout.addWidget(self.program_download_btn)
-            program_layout.addStretch()
-            layout.addLayout(program_layout)
 
     def _setup_model_section(self, layout):
         """设置模型下载部分UI"""
@@ -377,7 +304,6 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
             parent=self,
         )
         download_btn.setIcon(FIF.DOWNLOAD)
-        download_btn.clicked.connect(lambda checked, r=row: self._download_model(r))
 
         button_layout.addStretch()
         button_layout.addWidget(download_btn)
@@ -388,108 +314,8 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
         """连接信号"""
         self.rejected.connect(self._on_dialog_reject)
 
-    def _start_download(self):
-        """开始下载"""
-        if FasterWhisperDownloadDialog.is_downloading:
-            InfoBar.warning(
-                self.tr("下载进行中"),
-                self.tr("请等待当前下载任务完成"),
-                duration=3000,
-                parent=self,
-            )
-            return
-
-        FasterWhisperDownloadDialog.is_downloading = True
-        # 禁用所有下载按钮
-        self._set_all_download_buttons_enabled(False)
-
-        # 获取选中的文本
-        selected_text = self.program_combo.currentText()
-
-        # 从显示文本中提取程序标签
-        selected_label = selected_text.split(" (")[0]
-
-        # 根据标签找到对应的程序配置
-        program = next(
-            (p for p in FASTER_WHISPER_PROGRAMS if p["label"] == selected_label), None
-        )
-
-        if not program:
-            InfoBar.error(
-                self.tr("下载错误"),
-                self.tr("未找到对应的程序配置"),
-                duration=3000,
-                parent=self,
-            )
-            FasterWhisperDownloadDialog.is_downloading = False
-            self._set_all_download_buttons_enabled(True)
-            return
-
-        # 确保 BIN_PATH 目录存在
-        os.makedirs(BIN_PATH, exist_ok=True)
-
-        self.progress_bar.show()
-        self.progress_label.show()
-        self.program_download_btn.setEnabled(False)
-        self.program_combo.setEnabled(False)
-
-        # 直接下载到bin目录
-        save_path = os.path.join(BIN_PATH, program["value"])
-
-        self.program_download_thread = FileDownloadThread(
-            program["downloadLink"], save_path
-        )
-        self.program_download_thread.progress.connect(
-            self._on_program_download_progress
-        )
-        self.program_download_thread.finished.connect(
-            lambda: self._on_program_download_finished(save_path)
-        )
-        self.program_download_thread.error.connect(self._on_program_download_error)
-        self.program_download_thread.start()
-
-    def _on_program_download_progress(self, value, status_msg):
-        """更新程序下载进度"""
-        self.progress_bar.setValue(int(value))
-        self.progress_label.setText(status_msg)
-
-    def _on_program_download_finished(self, save_path):
-        """程序下载完成处理"""
-        try:
-            # 检查是否是 CPU 版本的直接下载
-            if save_path.endswith(".exe"):
-                # 如果是exe文件,重命名为faster-whisper.exe
-                os.rename(save_path, os.path.join(BIN_PATH, "faster-whisper.exe"))
-                self._finish_program_installation()
-            else:
-                # GPU 版本需要解压
-                self.progress_label.setText(self.tr("正在解压文件..."))
-
-                # 创建并启动解压线程
-                self.unzip_thread = UnzipThread(save_path, BIN_PATH)
-                self.unzip_thread.finished.connect(self._finish_program_installation)
-                self.unzip_thread.error.connect(self._on_unzip_error)
-                self.unzip_thread.start()
-                return  # 提前返回,等待解压完成
-
-        except Exception as e:
-            InfoBar.error(self.tr("安装失败"), str(e), duration=3000, parent=self)
-            self._cleanup_installation()
-
-    def _on_program_download_error(self, error):
-        """程序下载错误处理"""
-        InfoBar.error(self.tr("下载失败"), error, duration=3000, parent=self)
-        FasterWhisperDownloadDialog.is_downloading = False
-        self._set_all_download_buttons_enabled(True)
-        self.program_download_btn.setEnabled(True)
-        self.program_combo.setEnabled(True)
-        self.progress_bar.hide()
-        self.progress_label.hide()
-
     def _on_dialog_reject(self):
         """对话框关闭处理"""
-        if self.program_download_thread and self.program_download_thread.isRunning():
-            self.program_download_thread.stop()
         if self.model_download_thread and self.model_download_thread.isRunning():
             self.model_download_thread.terminate()
         FasterWhisperDownloadDialog.is_downloading = False
@@ -500,117 +326,8 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
         self._on_dialog_reject()
         super().closeEvent(event)
 
-    def _download_model(self, row):
-        """下载选中的模型"""
-        if FasterWhisperDownloadDialog.is_downloading:
-            InfoBar.warning(
-                self.tr("下载进行中"),
-                self.tr("请等待当前下载任务完成"),
-                duration=3000,
-                parent=self,
-            )
-            return
-
-        FasterWhisperDownloadDialog.is_downloading = True
-        self._set_all_download_buttons_enabled(False)
-
-        model = FASTER_WHISPER_MODELS[row]
-        self.progress_bar.show()
-        self.progress_label.show()
-        self.progress_label.setText(self.tr(f"正在下载 {model['label']} 模型..."))
-
-        # 禁用当前行的下载按钮
-        button_container = self.model_table.cellWidget(row, 3)
-        download_btn = button_container.findChild(HyperlinkButton)
-        if download_btn:
-            download_btn.setEnabled(False)
-
-        # 创建并启动下载线程，保存到类属性
-        self.model_download_thread = ModelscopeDownloadThread(
-            model["modelScopeLink"], os.path.join(MODEL_PATH, model["value"])
-        )
-
-        def _on_model_download_progress(value, msg):
-            self.progress_bar.setValue(value)
-            self.progress_label.setText(msg)
-
-        def _on_model_download_finished():
-            FasterWhisperDownloadDialog.is_downloading = False
-            self._set_all_download_buttons_enabled(True)
-            # 更新状态
-            status_item = QTableWidgetItem(self.tr("已下载"))
-            status_item.setForeground(Qt.green)  # type: ignore
-            status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore
-            self.model_table.setItem(row, 2, status_item)
-
-            # 更新下载按钮文本
-            if download_btn:
-                download_btn.setText(self.tr("重新下载"))
-                download_btn.setEnabled(True)
-
-            model = FASTER_WHISPER_MODELS[row]
-
-            # 更新主设置对话框的模型选择
-            if self.setting_widget:
-                # 保存当前值并清空
-                current_value = cfg.faster_whisper_model.value
-                combo = self.setting_widget.model_card.comboBox
-                combo.clear()
-
-                # 找出已下载的模型
-                available = []
-                model_map = {
-                    m["label"].lower(): m["value"] for m in FASTER_WHISPER_MODELS
-                }
-                for enum_val in FasterWhisperModelEnum:
-                    if enum_val.value in model_map:
-                        if (MODEL_PATH / model_map[enum_val.value]).exists():
-                            available.append(enum_val)
-
-                # 重建下拉框
-                self.setting_widget.model_card.optionToText = {
-                    e: e.value for e in available
-                }
-                for enum_val in available:
-                    combo.addItem(enum_val.value, userData=enum_val)
-
-                # 恢复选择
-                if current_value in available:
-                    combo.setCurrentText(current_value.value)
-                elif combo.count() > 0:
-                    combo.setCurrentIndex(0)
-
-            InfoBar.success(
-                self.tr("下载成功"),
-                self.tr(f"{model['label']} 模型已下载完成"),
-                duration=3000,
-                parent=self,
-            )
-            self.progress_bar.hide()
-            self.progress_label.hide()
-
-        def _on_model_download_error(error):
-            FasterWhisperDownloadDialog.is_downloading = False
-            self._set_all_download_buttons_enabled(True)
-            if download_btn:
-                download_btn.setEnabled(True)
-
-            InfoBar.error(self.tr("下载失败"), str(error), duration=3000, parent=self)
-            self.progress_bar.hide()
-            self.progress_label.hide()
-
-        self.model_download_thread.progress.connect(_on_model_download_progress)
-        self.model_download_thread.finished.connect(_on_model_download_finished)
-        self.model_download_thread.error.connect(_on_model_download_error)
-        self.model_download_thread.start()
-
     def _set_all_download_buttons_enabled(self, enabled: bool):
         """设置所有下载按钮的启用状态"""
-        # 设置程序下载按钮
-        if hasattr(self, "program_download_btn"):
-            self.program_download_btn.setEnabled(enabled)
-            self.program_combo.setEnabled(enabled)
-
         # 设置所有模型下载按钮
         for row in range(self.model_table.rowCount()):
             button_container = self.model_table.cellWidget(row, 3)
@@ -630,29 +347,6 @@ class FasterWhisperDownloadDialog(MessageBoxBase):
         if os.path.exists(BIN_PATH):
             # 根据操作系统打开文件夹
             open_folder(str(BIN_PATH))
-
-    def _finish_program_installation(self):
-        """完成程序安装"""
-        InfoBar.success(
-            self.tr("安装完成"),
-            self.tr("Faster Whisper 程序已安装成功"),
-            duration=3000,
-            parent=self,
-        )
-        self.accept()
-        self._cleanup_installation()
-
-    def _on_unzip_error(self, error_msg):
-        """处理解压错误"""
-        InfoBar.error(self.tr("安装失败"), error_msg, duration=3000, parent=self)
-        self._cleanup_installation()
-
-    def _cleanup_installation(self):
-        """清理安装状态"""
-        FasterWhisperDownloadDialog.is_downloading = False
-        self._set_all_download_buttons_enabled(True)
-        self.progress_bar.hide()
-        self.progress_label.hide()
 
 
 class FasterWhisperSettingWidget(QWidget):

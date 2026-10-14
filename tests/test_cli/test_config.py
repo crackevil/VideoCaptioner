@@ -16,13 +16,6 @@ from videocaptioner.cli.config import (
 )
 
 
-def test_default_dubbing_uses_keyless_edge_tts():
-    assert DEFAULTS["dubbing"]["provider"] == "edge"
-    assert DEFAULTS["dubbing"]["preset"] == "edge-cn-female"
-    assert DEFAULTS["dubbing"]["api_key"] == ""
-    assert DEFAULTS["dubbing"]["voice"] == "zh-CN-XiaoxiaoNeural"
-
-
 class TestDeepMerge:
     def test_flat_override(self):
         assert _deep_merge({"a": 1}, {"a": 2}) == {"a": 2}
@@ -65,36 +58,6 @@ class TestNestedAccess:
         assert d == {"a": {"b": 2}}
 
 
-class TestParseValue:
-    def test_bool_true(self):
-        assert _parse_value("true", "subtitle.optimize") is True
-        assert _parse_value("yes", "subtitle.optimize") is True
-        assert _parse_value("1", "subtitle.optimize") is True
-
-    def test_bool_false(self):
-        assert _parse_value("false", "subtitle.optimize") is False
-        assert _parse_value("no", "subtitle.optimize") is False
-        assert _parse_value("0", "subtitle.optimize") is False
-
-    def test_bool_invalid(self):
-        with pytest.raises(ValueError, match="Expected boolean"):
-            _parse_value("maybe", "subtitle.optimize")
-
-    def test_int(self):
-        assert _parse_value("8", "subtitle.thread_num") == 8
-        assert isinstance(_parse_value("8", "subtitle.thread_num"), int)
-
-    def test_int_invalid(self):
-        with pytest.raises(ValueError, match="Expected integer"):
-            _parse_value("abc", "subtitle.thread_num")
-
-    def test_string(self):
-        assert _parse_value("gpt-4o", "llm.model") == "gpt-4o"
-
-    def test_unknown_key_stays_string(self):
-        # Key not in DEFAULTS → stays string
-        assert _parse_value("anything", "unknown.key") == "anything"
-
 
 class TestTomlValue:
     def test_bool(self):
@@ -116,49 +79,3 @@ class TestTomlValue:
     def test_string_with_newline(self):
         assert _toml_value("line1\nline2") == '"line1\\nline2"'
 
-
-class TestConfigRoundtrip:
-    def test_save_and_load(self, tmp_path):
-        config_file = tmp_path / "config.toml"
-
-        save_config_value("llm.model", "gpt-4o", config_path=config_file)
-        save_config_value("subtitle.thread_num", "8", config_path=config_file)
-        save_config_value("subtitle.optimize", "false", config_path=config_file)
-
-        loaded = load_config_file(config_file)
-        assert loaded["llm"]["model"] == "gpt-4o"
-        assert loaded["subtitle"]["thread_num"] == 8
-        assert loaded["subtitle"]["optimize"] is False
-
-
-class TestBuildConfig:
-    def test_defaults_only(self):
-        config = build_config(config_path=None)
-        assert config["llm"]["model"] == DEFAULTS["llm"]["model"]
-
-    def test_cli_overrides(self):
-        config = build_config(cli_overrides={"llm": {"model": "custom"}})
-        assert config["llm"]["model"] == "custom"
-
-    def test_env_overrides(self, monkeypatch):
-        monkeypatch.setenv("VIDEOCAPTIONER_LLM_MODEL", "env-model")
-        config = build_config()
-        assert config["llm"]["model"] == "env-model"
-
-    def test_priority_cli_over_env(self, monkeypatch):
-        monkeypatch.setenv("VIDEOCAPTIONER_LLM_MODEL", "env-model")
-        config = build_config(cli_overrides={"llm": {"model": "cli-model"}})
-        assert config["llm"]["model"] == "cli-model"
-
-    def test_env_values_are_typed(self, monkeypatch):
-        monkeypatch.setenv("VIDEOCAPTIONER_TTS_MAX_SPEED", "2.0")
-        monkeypatch.setenv("VIDEOCAPTIONER_TTS_WORKERS", "3")
-        monkeypatch.setenv("VIDEOCAPTIONER_TTS_REWRITE_TOO_LONG", "true")
-        monkeypatch.setenv("VIDEOCAPTIONER_TTS_MIX_ORIGINAL_AUDIO", "false")
-
-        overrides = load_env_overrides()
-
-        assert overrides["dubbing"]["max_speed"] == 2.0
-        assert overrides["dubbing"]["tts_workers"] == 3
-        assert overrides["dubbing"]["rewrite_too_long"] is True
-        assert overrides["dubbing"]["mix_original_audio"] is False

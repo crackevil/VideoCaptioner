@@ -3,7 +3,6 @@ from videocaptioner.core.asr.bcut import BcutASR
 from videocaptioner.core.asr.chunked_asr import ChunkedASR
 from videocaptioner.core.asr.faster_whisper import FasterWhisperASR
 from videocaptioner.core.asr.jianying import JianYingASR
-from videocaptioner.core.asr.whisper_api import WhisperAPI
 from videocaptioner.core.asr.whisper_cpp import WhisperCppASR
 from videocaptioner.core.entities import TranscribeConfig, TranscribeModelEnum
 
@@ -63,9 +62,6 @@ def _create_asr_instance(audio_path: str, config: TranscribeConfig) -> ChunkedAS
     elif model_type == TranscribeModelEnum.WHISPER_CPP:
         return _create_whisper_cpp_asr(audio_path, config)
 
-    elif model_type == TranscribeModelEnum.WHISPER_API:
-        return _create_whisper_api_asr(audio_path, config)
-
     elif model_type == TranscribeModelEnum.FASTER_WHISPER:
         return _create_faster_whisper_asr(audio_path, config)
 
@@ -107,22 +103,6 @@ def _create_whisper_cpp_asr(audio_path: str, config: TranscribeConfig) -> Chunke
         asr_kwargs=asr_kwargs,
         chunk_concurrency=1,  # 本地转录使用单线程
         chunk_length=60 * 20,  # 每块20分钟
-    )
-
-
-def _create_whisper_api_asr(audio_path: str, config: TranscribeConfig) -> ChunkedASR:
-    """Create Whisper API ASR instance with chunking support."""
-    asr_kwargs = {
-        "use_cache": True,
-        "need_word_time_stamp": config.need_word_time_stamp,
-        "language": config.transcribe_language,
-        "whisper_model": config.whisper_api_model or "whisper-1",
-        "api_key": config.whisper_api_key or "",
-        "base_url": config.whisper_api_base or "",
-        "prompt": config.whisper_api_prompt or "",
-    }
-    return ChunkedASR(
-        asr_class=WhisperAPI, audio_path=audio_path, asr_kwargs=asr_kwargs
     )
 
 

@@ -10,14 +10,10 @@ from PyQt5.QtWidgets import (
 )
 from qfluentwidgets import (
     BodyLabel,
-    ComboBox,
     ComboBoxSettingCard,
     HyperlinkButton,
     HyperlinkCard,
-    InfoBar,
     MessageBoxBase,
-    ProgressBar,
-    PushButton,
     SettingCardGroup,
     SingleDirectionScrollArea,
     SubtitleLabel,
@@ -31,12 +27,8 @@ from videocaptioner.core.entities import (
     TranscribeLanguageEnum,
     WhisperModelEnum,
 )
-from videocaptioner.core.utils.logger import setup_logger
 from videocaptioner.core.utils.platform_utils import open_folder
 from videocaptioner.ui.common.config import cfg
-from videocaptioner.ui.thread.file_download_thread import FileDownloadThread
-
-logger = setup_logger("whisper_download")
 
 # 使用阿里云镜像定义模型配置
 # https://www.modelscope.cn/models/cjc1887415157/whisper.cpp/resolve/master/ggml-tiny.bin
@@ -116,117 +108,12 @@ def check_whisper_cpp_exists():
     return True, []
 
 
-class DownloadDialog(MessageBoxBase):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-        self.setWindowTitle(self.tr("下载模型"))
-        self.download_thread = None
-
-    def setup_ui(self):
-        self.titleLabel = BodyLabel(self.tr("下载模型"), self)
-
-        # 添加模型选择下拉框
-        self.model_combo = ComboBox(self)
-        self.model_combo.setFixedWidth(300)
-        for model in WHISPER_CPP_MODELS:
-            # 检查模型是否已下载
-            model_path = os.path.join(MODEL_PATH, model["value"])
-            downloaded = "✓ " if os.path.exists(model_path) else " "
-            self.model_combo.addItem(f"{downloaded}{model['label']} ({model['size']})")
-
-        # 进度条
-        self.progress_bar = ProgressBar()
-        self.progress_bar.hide()
-
-        # 进度标签
-        self.progress_label = BodyLabel()
-        self.progress_label.hide()
-
-        # 下载按钮
-        self.download_button = PushButton(self.tr("下载"), self)
-        self.download_button.clicked.connect(self.start_download)
-
-        # 添加到布局
-        self.viewLayout.addWidget(self.titleLabel)
-        self.viewLayout.addWidget(self.model_combo)
-        self.viewLayout.addWidget(self.progress_bar)
-        self.viewLayout.addWidget(self.progress_label)
-        self.viewLayout.addWidget(self.download_button)
-        # 设置间距
-        self.viewLayout.setSpacing(10)
-
-        # 只显示取消按钮
-        self.yesButton.hide()
-        self.cancelButton.setText(self.tr("关闭"))
-
-    def start_download(self):
-        selected_index = self.model_combo.currentIndex()
-        model = WHISPER_CPP_MODELS[selected_index]
-        save_path = os.path.join(MODEL_PATH, model["value"])
-
-        # 检查模型文件是否已存在
-        if os.path.exists(save_path):
-            InfoBar.warning(
-                title=self.tr("提示"),
-                content=self.tr("模型文件已存在,无需重复下载"),
-                parent=self.window(),
-                duration=3000,
-            )
-            return
-
-        self.progress_bar.show()
-        self.progress_label.show()
-        self.download_button.setEnabled(False)
-
-        self.download_thread = FileDownloadThread(model["mirrorLink"], save_path)
-        self.download_thread.progress.connect(self.update_progress)
-        self.download_thread.finished.connect(self.download_finished)
-        self.download_thread.error.connect(self.download_error)
-        self.download_thread.start()
-
-    def update_progress(self, value, status_msg):
-        self.progress_bar.setValue(int(value))
-        self.progress_label.setText(status_msg)
-
-    def download_finished(self):
-        InfoBar.success(
-            title=self.tr("完成"),
-            content=self.tr("模型下载完成!"),
-            parent=self.window(),
-            duration=3000,
-        )
-        self.download_button.setEnabled(True)
-        self.progress_label.setText(self.tr("下载完成"))
-
-    def download_error(self, error):
-        InfoBar.error(
-            title=self.tr("下载错误"),
-            content=error,
-            parent=self.window(),
-            duration=5000,
-        )
-        self.download_button.setEnabled(True)
-        self.progress_label.hide()
-
-    def reject(self):
-        if self.download_thread and self.download_thread.isRunning():
-            logger.info("关闭下载对话框,终止下载")
-            self.download_thread.stop()
-        super().reject()
-
-
 class WhisperCppDownloadDialog(MessageBoxBase):
     """WhisperCpp 下载对话框"""
-
-    # 添加类变量跟踪下载状态
-    is_downloading = False
 
     def __init__(self, parent=None, setting_widget=None):
         super().__init__(parent)
         self.widget.setMinimumWidth(600)
-        self.program_download_thread = None
-        self.model_download_thread = None
         self._setup_ui()
         self.setting_widget = setting_widget
 
@@ -236,7 +123,6 @@ class WhisperCppDownloadDialog(MessageBoxBase):
         self._setup_program_section(layout)
         layout.addSpacing(20)
         self._setup_model_section(layout)
-        self._setup_progress_section(layout)
 
         self.viewLayout.addLayout(layout)
         self.cancelButton.setText(self.tr("关闭"))
@@ -291,9 +177,9 @@ class WhisperCppDownloadDialog(MessageBoxBase):
         table = TableWidget(self)
         table.setEditTriggers(TableWidget.NoEditTriggers)
         table.setSelectionMode(TableWidget.NoSelection)
-        table.setColumnCount(4)
+        table.setColumnCount(3)
         table.setHorizontalHeaderLabels(
-            [self.tr("模型名称"), self.tr("大小"), self.tr("状态"), self.tr("操作")]
+            [self.tr("模型名称"), self.tr("大小"), self.tr("状态")]
         )
 
         # 设置表格样式
@@ -306,11 +192,9 @@ class WhisperCppDownloadDialog(MessageBoxBase):
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.Fixed)
         header.setSectionResizeMode(2, QHeaderView.Fixed)
-        header.setSectionResizeMode(3, QHeaderView.Fixed)
 
         table.setColumnWidth(1, 100)
         table.setColumnWidth(2, 80)
-        table.setColumnWidth(3, 150)
 
         # 设置行高
         row_height = 45
@@ -323,16 +207,6 @@ class WhisperCppDownloadDialog(MessageBoxBase):
         table.setFixedHeight(table_height)
 
         return table
-
-    def _setup_progress_section(self, layout):
-        """设置进度显示部分UI"""
-        self.progress_bar = ProgressBar(self)
-        self.progress_label = BodyLabel("", self)
-        self.progress_bar.hide()
-        self.progress_label.hide()
-
-        layout.addWidget(self.progress_bar)
-        layout.addWidget(self.progress_label)
 
     def _populate_model_table(self):
         """填充模型表格数据"""
@@ -361,145 +235,6 @@ class WhisperCppDownloadDialog(MessageBoxBase):
             status_item.setForeground(Qt.green)  # type: ignore
         status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore
         self.model_table.setItem(row, 2, status_item)
-
-        # 下载按钮
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.setContentsMargins(4, 4, 4, 4)
-
-        download_btn = HyperlinkButton(
-            "",
-            self.tr("重新下载") if os.path.exists(model_bin_path) else self.tr("下载"),
-            parent=self,
-        )
-        download_btn.setIcon(FIF.DOWNLOAD)
-        download_btn.clicked.connect(lambda checked, r=row: self._download_model(r))
-
-        button_layout.addStretch()
-        button_layout.addWidget(download_btn)
-        button_layout.addStretch()
-        self.model_table.setCellWidget(row, 3, button_container)
-
-    def _download_model(self, row):
-        """下载选中的模型"""
-        if WhisperCppDownloadDialog.is_downloading:
-            InfoBar.warning(
-                self.tr("下载进行中"),
-                self.tr("请等待当前下载任务完成"),
-                duration=3000,
-                parent=self,
-            )
-            return
-
-        WhisperCppDownloadDialog.is_downloading = True
-        self._set_all_download_buttons_enabled(False)
-
-        model = WHISPER_CPP_MODELS[row]
-        self.progress_bar.show()
-        self.progress_label.show()
-        self.progress_label.setText(self.tr(f"正在下载 {model['label']} 模型..."))
-
-        # 禁用当前行的下载按钮
-        button_container = self.model_table.cellWidget(row, 3)
-        download_btn = button_container.findChild(HyperlinkButton)
-        if download_btn:
-            download_btn.setEnabled(False)
-
-        def _on_model_download_progress(value, msg):
-            self.progress_bar.setValue(int(value))
-            self.progress_label.setText(msg)
-
-        def _on_model_download_finished():
-            WhisperCppDownloadDialog.is_downloading = False
-            self._set_all_download_buttons_enabled(True)
-            # 更新状态
-            status_item = QTableWidgetItem(self.tr("已下载"))
-            status_item.setForeground(Qt.green)  # type: ignore
-            status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore
-            self.model_table.setItem(row, 2, status_item)
-
-            # 更新下载按钮文本
-            if download_btn:
-                download_btn.setText(self.tr("重新下载"))
-                download_btn.setEnabled(True)
-
-            # 获取当前下载的模型信息
-            model = WHISPER_CPP_MODELS[row]
-
-            # 更新主设置对话框的模型选择
-            if self.setting_widget:
-                try:
-                    # 保存当前值并清空
-                    current_value = cfg.whisper_model.value
-                    combo = self.setting_widget.model_card.comboBox
-                    combo.clear()
-
-                    # 找出已下载的模型
-                    available = []
-                    model_map = {
-                        m["label"].lower(): m["value"] for m in WHISPER_CPP_MODELS
-                    }
-                    for enum_val in WhisperModelEnum:
-                        if enum_val.value in model_map:
-                            if (MODEL_PATH / model_map[enum_val.value]).exists():
-                                available.append(enum_val)
-
-                    # 重建下拉框
-                    self.setting_widget.model_card.optionToText = {
-                        e: e.value for e in available
-                    }
-                    for enum_val in available:
-                        combo.addItem(enum_val.value, userData=enum_val)
-
-                    # 恢复选择
-                    if current_value in available:
-                        combo.setCurrentText(current_value.value)
-                    elif combo.count() > 0:
-                        combo.setCurrentIndex(0)
-                except Exception as e:
-                    logger.error(f"更新模型选择失败: {e}")
-
-            InfoBar.success(
-                self.tr("下载成功"),
-                self.tr(f"{model['label']} 模型已下载完成"),
-                duration=3000,
-                parent=self,
-            )
-            self.progress_bar.hide()
-            self.progress_label.hide()
-
-        def _on_model_download_error(error):
-            WhisperCppDownloadDialog.is_downloading = False
-            self._set_all_download_buttons_enabled(True)
-            if download_btn:
-                download_btn.setEnabled(True)
-
-            InfoBar.error(self.tr("下载失败"), str(error), duration=3000, parent=self)
-            self.progress_bar.hide()
-            self.progress_label.hide()
-
-        self.model_download_thread = FileDownloadThread(
-            model["mirrorLink"], os.path.join(MODEL_PATH, model["value"])
-        )
-        self.model_download_thread.progress.connect(_on_model_download_progress)
-        self.model_download_thread.finished.connect(_on_model_download_finished)
-        self.model_download_thread.error.connect(_on_model_download_error)
-        self.model_download_thread.start()
-
-    def _set_all_download_buttons_enabled(self, enabled: bool):
-        """设置所有下载按钮的启用状态"""
-        # 设置程序下载按钮
-        if hasattr(self, "program_download_btn"):
-            self.program_download_btn.setEnabled(enabled)
-            self.program_combo.setEnabled(enabled)
-
-        # 设置所有模型下载按钮
-        for row in range(self.model_table.rowCount()):
-            button_container = self.model_table.cellWidget(row, 3)
-            if button_container:
-                download_btn = button_container.findChild(HyperlinkButton)
-                if download_btn:
-                    download_btn.setEnabled(enabled)
 
     def _open_model_folder(self):
         """打开模型文件夹"""

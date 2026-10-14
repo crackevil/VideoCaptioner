@@ -2,25 +2,12 @@ import datetime
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Optional
-
-if TYPE_CHECKING:
-    from videocaptioner.core.translate.types import TargetLanguage
+from typing import Literal, Optional
 
 
 def _generate_task_id() -> str:
     """生成 8 位任务 ID"""
     return uuid.uuid4().hex[:8]
-
-
-@dataclass
-class SubtitleProcessData:
-    """字幕处理数据（翻译/优化通用）"""
-
-    index: int
-    original_text: str
-    translated_text: str = ""
-    optimized_text: str = ""
 
 
 class SupportedAudioFormats(Enum):
@@ -101,35 +88,14 @@ class TranscribeOutputFormatEnum(Enum):
     ALL = "All"
 
 
-class LLMServiceEnum(Enum):
-    """LLM服务"""
-
-    OPENAI = "OpenAI 兼容"
-    SILICON_CLOUD = "SiliconCloud"
-    DEEPSEEK = "DeepSeek"
-    OLLAMA = "Ollama"
-    LM_STUDIO = "LM Studio"
-    GEMINI = "Gemini"
-    CHATGLM = "ChatGLM"
-
 
 class TranscribeModelEnum(Enum):
     """转录模型"""
 
     BIJIAN = "B 接口"
     JIANYING = "J 接口"
-    WHISPER_API = "Whisper [API] ✨"
     FASTER_WHISPER = "FasterWhisper ✨"
     WHISPER_CPP = "WhisperCpp"
-
-
-class TranslatorServiceEnum(Enum):
-    """翻译器服务"""
-
-    OPENAI = "LLM 大模型翻译"
-    DEEPLX = "DeepLx 翻译"
-    BING = "微软翻译"
-    GOOGLE = "谷歌翻译"
 
 
 class VadMethodEnum(Enum):
@@ -159,13 +125,6 @@ class SubtitleLayoutEnum(Enum):
     ORIGINAL_ON_TOP = "原文在上"
     ONLY_ORIGINAL = "仅原文"
     ONLY_TRANSLATE = "仅译文"
-
-
-class SubtitleRenderModeEnum(Enum):
-    """字幕渲染模式"""
-
-    ASS_STYLE = "ASS 样式"  # FFmpeg ASS 渲染
-    ROUNDED_BG = "圆角背景"  # Pillow 圆角矩形背景
 
 
 class VideoQualityEnum(Enum):
@@ -501,11 +460,7 @@ ASR_LANGUAGE_CAPABILITIES: dict[TranscribeModelEnum, ASRLanguageCapability] = {
         supported_languages=_get_all_languages_except_auto(),
         supports_auto=True,
     ),
-    TranscribeModelEnum.WHISPER_API: ASRLanguageCapability(
-        supported_languages=_get_all_languages_except_auto(),
-        supports_auto=True,
-    ),
-}
+    }
 
 
 def get_asr_language_capability(model: TranscribeModelEnum) -> ASRLanguageCapability:
@@ -557,11 +512,6 @@ class TranscribeConfig:
     output_format: Optional[TranscribeOutputFormatEnum] = None
     # Whisper Cpp 配置
     whisper_model: Optional[WhisperModelEnum] = None
-    # Whisper API 配置
-    whisper_api_key: Optional[str] = None
-    whisper_api_base: Optional[str] = None
-    whisper_api_model: Optional[str] = None
-    whisper_api_prompt: Optional[str] = None
     # Faster Whisper 配置
     faster_whisper_program: Optional[str] = None
     faster_whisper_model: Optional[FasterWhisperModelEnum] = None
@@ -592,14 +542,7 @@ class TranscribeConfig:
             f"Output Format: {self.output_format.value if self.output_format else 'None'}"
         )
 
-        if self.transcribe_model == TranscribeModelEnum.WHISPER_API:
-            lines.append(f"API Base: {self.whisper_api_base}")
-            lines.append(f"API Key: {self._mask_key(self.whisper_api_key)}")
-            lines.append(f"API Model: {self.whisper_api_model}")
-            if self.whisper_api_prompt:
-                lines.append(f"Prompt: {self.whisper_api_prompt[:30]}...")
-
-        elif self.transcribe_model == TranscribeModelEnum.FASTER_WHISPER:
+        if self.transcribe_model == TranscribeModelEnum.FASTER_WHISPER:
             lines.append(
                 f"Model: {self.faster_whisper_model.value if self.faster_whisper_model else 'None'}"
             )
@@ -621,101 +564,6 @@ class TranscribeConfig:
         return "\n".join(lines)
 
 
-@dataclass
-class SubtitleConfig:
-    """字幕处理配置类"""
-
-    # 翻译配置
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
-    llm_model: Optional[str] = None
-    deeplx_endpoint: Optional[str] = None
-    # 翻译服务
-    translator_service: Optional[TranslatorServiceEnum] = None
-    need_translate: bool = False
-    need_optimize: bool = False
-    need_reflect: bool = False
-    thread_num: int = 10
-    batch_size: int = 10
-    # 字幕布局和分割
-    subtitle_layout: SubtitleLayoutEnum = SubtitleLayoutEnum.ORIGINAL_ON_TOP
-    max_word_count_cjk: int = 12
-    max_word_count_english: int = 18
-    need_split: bool = True
-    target_language: Optional["TargetLanguage"] = None
-    subtitle_style: Optional[str] = None
-    custom_prompt_text: Optional[str] = None
-
-    def _mask_key(self, key: Optional[str]) -> str:
-        """Mask sensitive key for display"""
-        if not key or len(key) <= 8:
-            return "****"
-        return f"{key[:4]}...{key[-4:]}"
-
-    def print_config(self) -> str:
-        """Print subtitle processing configuration"""
-        lines = ["=========== Subtitle Processing Task ==========="]
-
-        if self.need_split:
-            lines.append("Split: Yes")
-            lines.append(f"  Max Words (CJK): {self.max_word_count_cjk}")
-            lines.append(f"  Max Words (English): {self.max_word_count_english}")
-
-        if self.need_optimize:
-            lines.append("Optimize: Yes")
-            lines.append(f"  Model: {self.llm_model or 'None'}")
-            if self.custom_prompt_text:
-                lines.append(f"  Custom Prompt: {self.custom_prompt_text[:30]}...")
-
-        if self.need_translate:
-            lines.append("Translate: Yes")
-            lines.append(
-                f"  Service: {self.translator_service.value if self.translator_service else 'None'}"
-            )
-            if self.translator_service == TranslatorServiceEnum.OPENAI:
-                lines.append(f"  API Base: {self.base_url}")
-                lines.append(f"  API Key: {self._mask_key(self.api_key)}")
-                lines.append(f"  Model: {self.llm_model}")
-                lines.append(f"  Reflect Translation: {self.need_reflect}")
-            elif self.translator_service == TranslatorServiceEnum.DEEPLX:
-                lines.append(f"  DeepLX Endpoint: {self.deeplx_endpoint}")
-            lines.append(
-                f"  Target Language: {self.target_language.value if self.target_language else 'None'}"
-            )
-            lines.append(f"  Concurrency: {self.thread_num}")
-            lines.append(f"  Batch Size: {self.batch_size}")
-
-        lines.append(f"Layout: {self.subtitle_layout.value}")
-        lines.append("=" * 48)
-        return "\n".join(lines)
-
-
-@dataclass
-class SynthesisConfig:
-    """视频合成配置类"""
-
-    need_video: bool = True
-    soft_subtitle: bool = True
-    render_mode: SubtitleRenderModeEnum = SubtitleRenderModeEnum.ASS_STYLE
-    video_quality: VideoQualityEnum = VideoQualityEnum.MEDIUM
-    subtitle_layout: SubtitleLayoutEnum = SubtitleLayoutEnum.ORIGINAL_ON_TOP
-    # 字幕样式配置
-    ass_style: str = ""  # ASS 样式字符串
-    rounded_style: Optional[dict] = None  # 圆角背景样式配置
-
-    def print_config(self) -> str:
-        """Print video synthesis configuration"""
-        lines = ["=========== Video Synthesis Task ==========="]
-        lines.append(f"Generate Video: {self.need_video}")
-        if self.need_video:
-            lines.append(f"Subtitle Type: {'Soft' if self.soft_subtitle else 'Hard'}")
-            if not self.soft_subtitle:
-                lines.append(f"Render Mode: {self.render_mode.value}")
-            lines.append(f"Video Quality: {self.video_quality.value}")
-            lines.append(f"  CRF: {self.video_quality.get_crf()}")
-            lines.append(f"  Preset: {self.video_quality.get_preset()}")
-        lines.append("=" * 44)
-        return "\n".join(lines)
 
 
 @dataclass
@@ -744,95 +592,7 @@ class TranscribeTask:
     transcribe_config: Optional[TranscribeConfig] = None
 
 
-@dataclass
-class SubtitleTask:
-    """字幕任务类"""
 
-    # 任务标识
-    task_id: str = field(default_factory=_generate_task_id)
-
-    queued_at: Optional[datetime.datetime] = None
-    started_at: Optional[datetime.datetime] = None
-    completed_at: Optional[datetime.datetime] = None
-
-    # 输入原始字幕文件
-    subtitle_path: str = ""
-    # 输入原始视频文件
-    video_path: Optional[str] = None
-
-    # 输出 断句、优化、翻译 后的字幕文件
-    output_path: Optional[str] = None
-
-    # 是否需要执行下一个任务（视频合成）
-    need_next_task: bool = True
-
-    subtitle_config: Optional[SubtitleConfig] = None
-
-
-@dataclass
-class SynthesisTask:
-    """视频合成任务类"""
-
-    # 任务标识
-    task_id: str = field(default_factory=_generate_task_id)
-
-    queued_at: Optional[datetime.datetime] = None
-    started_at: Optional[datetime.datetime] = None
-    completed_at: Optional[datetime.datetime] = None
-
-    # 输入
-    video_path: Optional[str] = None
-    subtitle_path: Optional[str] = None
-
-    # 输出
-    output_path: Optional[str] = None
-
-    # 是否需要执行下一个任务（预留）
-    need_next_task: bool = False
-
-    synthesis_config: Optional[SynthesisConfig] = None
-
-
-@dataclass
-class TranscriptAndSubtitleTask:
-    """转录和字幕任务类"""
-
-    # 任务标识
-    task_id: str = field(default_factory=_generate_task_id)
-
-    queued_at: Optional[datetime.datetime] = None
-    started_at: Optional[datetime.datetime] = None
-    completed_at: Optional[datetime.datetime] = None
-
-    # 输入
-    file_path: Optional[str] = None
-
-    # 输出
-    output_path: Optional[str] = None
-
-    transcribe_config: Optional[TranscribeConfig] = None
-    subtitle_config: Optional[SubtitleConfig] = None
-
-
-@dataclass
-class FullProcessTask:
-    """完整处理任务类(转录+字幕+合成)"""
-
-    # 任务标识
-    task_id: str = field(default_factory=_generate_task_id)
-
-    queued_at: Optional[datetime.datetime] = None
-    started_at: Optional[datetime.datetime] = None
-    completed_at: Optional[datetime.datetime] = None
-
-    # 输入
-    file_path: Optional[str] = None
-    # 输出
-    output_path: Optional[str] = None
-
-    transcribe_config: Optional[TranscribeConfig] = None
-    subtitle_config: Optional[SubtitleConfig] = None
-    synthesis_config: Optional[SynthesisConfig] = None
 
 
 class BatchTaskType(Enum):

@@ -128,7 +128,7 @@ chmod +x run.sh
 
 ### Speech Recognition & Transcription
 
-- Supports Whisper API, FasterWhisper, WhisperCpp, and other engines
+- Supports FasterWhisper, WhisperCpp, and other engines
 - Supports 99 language recognition
 - Supports VAD (Voice Activity Detection)
 - Supports vocal separation

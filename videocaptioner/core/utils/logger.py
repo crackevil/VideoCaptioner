@@ -61,7 +61,6 @@ def setup_logger(
     error_loggers = [
         "urllib3",
         "requests",
-        "openai",
         "httpx",
         "httpcore",
         "ssl",

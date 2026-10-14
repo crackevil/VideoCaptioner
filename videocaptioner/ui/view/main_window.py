@@ -19,13 +19,12 @@ from qfluentwidgets import (
 from videocaptioner.config import ASSETS_PATH, GITHUB_REPO_URL
 from videocaptioner.core.constant import INFOBAR_DURATION_FOREVER
 from videocaptioner.ui.common.config import cfg
-from videocaptioner.ui.components.DonateDialog import DonateDialog
-from videocaptioner.ui.thread.version_checker_thread import VersionChecker
+
+
 from videocaptioner.ui.view.batch_process_interface import BatchProcessInterface
 from videocaptioner.ui.view.home_interface import HomeInterface
-from videocaptioner.ui.view.llm_logs_interface import LLMLogsInterface
+
 from videocaptioner.ui.view.setting_interface import SettingInterface
-from videocaptioner.ui.view.subtitle_style_interface import SubtitleStyleInterface
 
 LOGO_PATH = ASSETS_PATH / "logo.png"
 
@@ -38,19 +37,7 @@ class MainWindow(FluentWindow):
         # 创建子界面
         self.homeInterface = HomeInterface(self)
         self.settingInterface = SettingInterface(self)
-        self.subtitleStyleInterface = SubtitleStyleInterface(self)
         self.batchProcessInterface = BatchProcessInterface(self)
-        self.llmLogsInterface = LLMLogsInterface(self)
-
-        # 初始化版本检查器
-        self.versionChecker = VersionChecker()
-        self.versionChecker.newVersionAvailable.connect(self.onNewVersion)
-        self.versionChecker.announcementAvailable.connect(self.onAnnouncement)
-
-        self.versionThread = QThread()
-        self.versionChecker.moveToThread(self.versionThread)
-        self.versionThread.started.connect(self.versionChecker.perform_check)
-        self.versionThread.start()
 
         # 初始化导航界面
         self.initNavigation()
@@ -67,19 +54,9 @@ class MainWindow(FluentWindow):
         # 添加导航项
         self.addSubInterface(self.homeInterface, FIF.HOME, self.tr("主页"))
         self.addSubInterface(self.batchProcessInterface, FIF.VIDEO, self.tr("批量处理"))
-        self.addSubInterface(self.subtitleStyleInterface, FIF.FONT, self.tr("字幕样式"))
-        self.addSubInterface(self.llmLogsInterface, FIF.HISTORY, self.tr("请求日志"))
 
         self.navigationInterface.addSeparator()
 
-        # 在底部添加自定义小部件
-        self.navigationInterface.addItem(
-            routeKey="avatar",
-            text="GitHub",
-            icon=FIF.GITHUB,
-            onClick=self.onGithubDialog,
-            position=NavigationItemPosition.BOTTOM,
-        )
         self.addSubInterface(
             self.settingInterface,
             FIF.SETTING,
@@ -119,59 +96,6 @@ class MainWindow(FluentWindow):
         self.show()
         QApplication.processEvents()
 
-    def onGithubDialog(self):
-        """打开GitHub"""
-        w = MessageBox(
-            self.tr("GitHub信息"),
-            self.tr(
-                "VideoCaptioner 由本人在课余时间独立开发完成，目前托管在GitHub上，欢迎Star和Fork。项目诚然还有很多地方需要完善，遇到软件的问题或者BUG欢迎提交Issue。\n\n https://github.com/WEIFENG2333/VideoCaptioner"
-            ),
-            self,
-        )
-        w.yesButton.setText(self.tr("打开 GitHub"))
-        w.cancelButton.setText(self.tr("支持作者"))
-        if w.exec():
-            QDesktopServices.openUrl(QUrl(GITHUB_REPO_URL))
-        else:
-            # 点击"支持作者"按钮时打开捐赠对话框
-            donate_dialog = DonateDialog(self)
-            donate_dialog.exec_()
-
-    def onNewVersion(self, version, update_required, update_info, download_url):
-        """新版本提示"""
-        if update_required:
-            title = "发现新版本, 需要更新"
-            content = f"发现新版本 {version}\n\n" f"更新内容：\n{update_info}"
-        else:
-            title = "发现新版本"
-            content = f"发现新版本 {version}\n\n{update_info}"
-
-        w = MessageBox(title, content, self)
-        w.yesButton.setText("立即更新")
-        w.cancelButton.setText("稍后再说")
-
-        if w.exec() or update_required:
-            QDesktopServices.openUrl(QUrl(download_url))
-
-        if update_required:
-            self.homeInterface.setEnabled(False)
-            self.batchProcessInterface.setEnabled(False)
-            InfoBar.error(
-                title="需要更新",
-                content=self.tr("当前版本部分功能已被禁用。请尽快更新。"),
-                isClosable=False,
-                position=InfoBarPosition.BOTTOM,
-                duration=-1,
-                parent=self,
-            )
-
-    def onAnnouncement(self, content):
-        """显示公告"""
-        w = MessageBox("公告", content, self)
-        w.yesButton.setText("我知道了")
-        w.cancelButton.hide()
-        w.exec()
-
     def resizeEvent(self, e):
         super().resizeEvent(e)
         if hasattr(self, "splashScreen"):
@@ -181,7 +105,6 @@ class MainWindow(FluentWindow):
         # 关闭所有子界面
         # self.homeInterface.close()
         # self.batchProcessInterface.close()
-        # self.subtitleStyleInterface.close()
         # self.settingInterface.close()
         super().closeEvent(event)
 

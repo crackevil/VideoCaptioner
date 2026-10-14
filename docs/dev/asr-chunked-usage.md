@@ -67,7 +67,7 @@ result = transcribe(audio_path, config, callback)
 **chunk_length（分块长度）**
 
 - **公益 API（BIJIAN/JIANYING）**: 1200 秒（20 分钟）- 避免超时
-- **付费 API（Whisper API）**: 可更长，如 3600 秒（1 小时）
+- **本地转录（WhisperCpp）**: 通常不需要分块
 - **本地转录（FasterWhisper）**: 通常不需要分块
 
 **chunk_overlap（重叠时长）**

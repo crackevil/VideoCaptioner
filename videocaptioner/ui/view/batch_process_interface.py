@@ -35,11 +35,11 @@ from videocaptioner.core.entities import (
     BatchTaskStatus,
     BatchTaskType,
     SupportedAudioFormats,
-    SupportedSubtitleFormats,
     SupportedVideoFormats,
 )
 from videocaptioner.core.utils.platform_utils import open_folder
 from videocaptioner.ui.thread.batch_process_thread import (
+    SUPPORTED_BATCH_TASK_TYPES,
     BatchProcessThread,
     BatchTask,
 )
@@ -68,15 +68,12 @@ class BatchProcessInterface(QWidget):
 
         # 任务类型选择
         self.task_type_combo = ComboBox()
-        self.task_type_combo.addItems([str(task_type) for task_type in BatchTaskType])
-        self.task_type_combo.setCurrentText(str(BatchTaskType.FULL_PROCESS))
+        self.task_type_combo.addItems([str(task_type) for task_type in SUPPORTED_BATCH_TASK_TYPES])
+        self.task_type_combo.setCurrentText(str(BatchTaskType.TRANSCRIBE))
 
         # 任务类型说明
         self.task_type_descriptions = {
             str(BatchTaskType.TRANSCRIBE): self.tr("仅进行语音识别，生成字幕文件"),
-            str(BatchTaskType.SUBTITLE): self.tr("对已有字幕进行分割、优化或翻译"),
-            str(BatchTaskType.TRANS_SUB): self.tr("先转录再处理字幕，不合成视频"),
-            str(BatchTaskType.FULL_PROCESS): self.tr("转录 → 字幕处理 → 合成视频"),
         }
 
         # 控制按钮
@@ -144,20 +141,12 @@ class BatchProcessInterface(QWidget):
     def on_add_file_clicked(self):
         task_type = self.task_type_combo.currentText()
         file_filter = ""
-        if task_type in [
-            BatchTaskType.TRANSCRIBE,
-            BatchTaskType.TRANS_SUB,
-            BatchTaskType.FULL_PROCESS,
-        ]:
+        if task_type in [str(BatchTaskType.TRANSCRIBE)]:
             # 获取所有支持的音视频格式
             audio_formats = [f"*.{fmt.value}" for fmt in SupportedAudioFormats]
             video_formats = [f"*.{fmt.value}" for fmt in SupportedVideoFormats]
             formats = audio_formats + video_formats
             file_filter = f"音视频文件 ({' '.join(formats)})"
-        elif task_type == BatchTaskType.SUBTITLE:
-            # 获取所有支持的字幕格式
-            subtitle_formats = [f"*.{fmt.value}" for fmt in SupportedSubtitleFormats]
-            file_filter = f"字幕文件 ({' '.join(subtitle_formats)})"
 
         files, _ = QFileDialog.getOpenFileNames(self, "选择文件", "", file_filter)
         if files:
@@ -217,19 +206,6 @@ class BatchProcessInterface(QWidget):
         # 对有效文件按文件名排序
         valid_files.sort(key=lambda x: os.path.basename(x).lower())
 
-        # 如果表格为空，自动检测文件类型并设置任务类型
-        if self.task_table.rowCount() == 0 and self.task_type_combo.currentIndex() == 0:
-            first_file = valid_files[0].lower()
-            is_subtitle = any(
-                first_file.endswith(f".{fmt.value}") for fmt in SupportedSubtitleFormats
-            )
-            if is_subtitle:
-                self.task_type_combo.setCurrentText(str(BatchTaskType.SUBTITLE))
-                task_type = BatchTaskType.SUBTITLE
-            # elif is_media:
-            #     self.task_type_combo.setCurrentText(str(BatchTaskType.FULL_PROCESS))
-            #     task_type = BatchTaskType.FULL_PROCESS
-
         # 过滤文件类型
         valid_files = self.filter_files(valid_files, task_type)
 
@@ -265,16 +241,10 @@ class BatchProcessInterface(QWidget):
         valid_extensions = {}
 
         # 根据任务类型设置有效的扩展名
-        if task_type in [
-            BatchTaskType.TRANSCRIBE,
-            BatchTaskType.TRANS_SUB,
-            BatchTaskType.FULL_PROCESS,
-        ]:
+        if task_type in [BatchTaskType.TRANSCRIBE]:
             valid_extensions = {f".{fmt.value}" for fmt in SupportedAudioFormats} | {
                 f".{fmt.value}" for fmt in SupportedVideoFormats
             }
-        elif task_type == BatchTaskType.SUBTITLE:
-            valid_extensions = {f".{fmt.value}" for fmt in SupportedSubtitleFormats}
 
         return [
             f
@@ -335,18 +305,8 @@ class BatchProcessInterface(QWidget):
         menu.exec_(self.task_table.viewport().mapToGlobal(pos))
 
     def open_output_folder(self, file_path: str):
-        # 根据任务类型和文件路径确定输出文件夹
-        task_type = BatchTaskType(self.task_type_combo.currentText())
-        file_dir = os.path.dirname(file_path)
-
-        if task_type == BatchTaskType.FULL_PROCESS:
-            # 对于全流程任务，输出在视频同目录下
-            output_dir = file_dir
-        else:
-            # 其他任务输出在文件同目录下
-            output_dir = file_dir
-
-        open_folder(output_dir)
+        # 输出在文件同目录下
+        open_folder(os.path.dirname(file_path))
 
     def update_task_progress(self, file_path: str, progress: int, status: str):
         for row in range(self.task_table.rowCount()):

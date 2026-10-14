@@ -12,7 +12,7 @@ def main():
     from PyQt5.QtWidgets import QApplication
 
     from videocaptioner.config import TRANSLATIONS_PATH
-    from videocaptioner.core.utils.cache import disable_cache, enable_cache
+
     from videocaptioner.core.utils.logger import setup_logger
 
     # Suppress qfluentwidgets ad
@@ -39,12 +39,6 @@ def main():
         sys.__excepthook__(exctype, value, tb)
 
     sys.excepthook = exception_hook
-
-    # Cache
-    if cfg.get(cfg.cache_enabled):
-        enable_cache()
-    else:
-        disable_cache()
 
     # DPI scaling
     if cfg.get(cfg.dpiScale) == "Auto":

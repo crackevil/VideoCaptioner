@@ -77,32 +77,13 @@ FASTER_WHISPER_PATH = BIN_PATH / "Faster-Whisper-XXL"
 LOG_LEVEL = logging.INFO
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-def _copy_missing_tree(src: Path, dst: Path) -> None:
-    """Copy bundled default files into the writable user directory."""
-    if not src.exists():
-        return
-    dst.mkdir(parents=True, exist_ok=True)
-    for item in src.iterdir():
-        target = dst / item.name
-        if item.is_dir():
-            _copy_missing_tree(item, target)
-        elif not target.exists():
-            shutil.copy2(item, target)
-
 
 # Create data directories
 for p in [APPDATA_PATH, CACHE_PATH, LOG_PATH, WORK_PATH, MODEL_PATH, BIN_PATH]:
     p.mkdir(parents=True, exist_ok=True)
-
-if not _IS_DEV:
-    _copy_missing_tree(RESOURCE_PATH / "subtitle_style", SUBTITLE_STYLE_PATH)
-    _copy_missing_tree(RESOURCE_PATH / "fonts", FONTS_PATH)
 
 # Add bin paths to PATH. User-downloaded binaries take precedence over bundled
 # tools, while packaged ffmpeg/ffprobe still work out of the box.
 for _path in [FASTER_WHISPER_PATH, BIN_PATH, BUNDLED_BIN_PATH]:
     if _path.exists():
         os.environ["PATH"] = str(_path) + os.pathsep + os.environ["PATH"]
-
-if (BIN_PATH / "vlc").exists():
-    os.environ["PYTHON_VLC_MODULE_PATH"] = str(BIN_PATH / "vlc")

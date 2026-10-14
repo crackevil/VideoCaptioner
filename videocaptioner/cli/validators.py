@@ -81,7 +81,7 @@ def validate_output_format(path: Path) -> int | None:
 
 
 def validate_llm(config: dict) -> bool:
-    """Validate LLM configuration (required for optimize, LLM translate, split)."""
+    """Validate LLM configuration (required for optimize and split)."""
     api_key = get(config, "llm.api_key")
     model = get(config, "llm.model")
 
@@ -99,20 +99,6 @@ def validate_llm(config: dict) -> bool:
             "llm.model",
             "OPENAI_MODEL",
             "--model",
-        )
-        return False
-    return True
-
-
-def validate_whisper_api(config: dict) -> bool:
-    """Validate Whisper API configuration."""
-    api_key = get(config, "whisper_api.api_key")
-    if not api_key:
-        output.config_missing_error(
-            "Whisper API key",
-            "whisper_api.api_key",
-            "VIDEOCAPTIONER_WHISPER_API_KEY",
-            "--whisper-api-key",
         )
         return False
     return True
@@ -161,8 +147,6 @@ def validate_transcribe(config: dict) -> bool:
     """Validate config for transcribe command."""
     asr = get(config, "transcribe.asr", "faster-whisper")
 
-    if asr == "whisper-api":
-        return validate_whisper_api(config)
     if asr == "faster-whisper":
         return validate_faster_whisper()
     if asr == "whisper-cpp":
@@ -170,85 +154,6 @@ def validate_transcribe(config: dict) -> bool:
     # bijian/jianying: no config needed (public endpoints)
     return True
 
-
-def validate_subtitle(config: dict) -> bool:
-    """Validate config for subtitle command."""
-    needs_llm = False
-
-    optimize = get(config, "subtitle.optimize", True)
-    translate = get(config, "subtitle.translate", False)
-    translator = get(config, "translate.service", "bing")
-
-    if optimize:
-        needs_llm = True
-    if translate and translator == "llm":
-        needs_llm = True
-
-    if needs_llm:
-        return validate_llm(config)
-    return True
-
-
-def validate_synthesize(config: dict) -> bool:
-    """Validate config for synthesize command."""
-    return validate_ffmpeg()
-
-
-def validate_dubbing(config: dict, *, needs_video: bool = False, rewrite: bool = False) -> bool:
-    """Validate config for dub command."""
-    provider = get(config, "dubbing.provider", "")
-    model = get(config, "dubbing.model", "")
-    preset_name = get(config, "dubbing.preset", "")
-    if preset_name:
-        try:
-            from videocaptioner.core.dubbing.presets import get_dubbing_preset
-            preset = get_dubbing_preset(preset_name)
-        except ValueError as exc:
-            output.error(str(exc))
-            return False
-        provider = preset.provider
-        model = preset.model
-    api_key = get(config, "dubbing.api_key", "")
-    workers = get(config, "dubbing.tts_workers", 5)
-    timing = get(config, "dubbing.timing", "balanced")
-    audio_mode = get(config, "dubbing.audio_mode", "replace")
-
-    if provider not in {"siliconflow", "gemini", "edge"}:
-        output.error(f"Unsupported dubbing provider: {provider}")
-        output.hint("Supported providers: siliconflow, gemini, edge")
-        return False
-    if provider != "edge" and not api_key:
-        output.config_missing_error(
-            "TTS API key",
-            "dubbing.api_key",
-            "VIDEOCAPTIONER_TTS_API_KEY",
-            "--tts-api-key",
-        )
-        return False
-    if provider != "edge" and not model:
-        output.config_missing_error(
-            "TTS model",
-            "dubbing.model",
-            "VIDEOCAPTIONER_TTS_MODEL",
-            "--tts-model",
-        )
-        return False
-    if int(workers) < 1:
-        output.error("dubbing.tts_workers must be at least 1")
-        return False
-    if timing not in {"balanced", "strict", "natural", "none"}:
-        output.error(f"Unsupported dubbing timing: {timing}")
-        output.hint("Supported timing values: balanced, strict, natural, none")
-        return False
-    if audio_mode not in {"replace", "mix", "duck"}:
-        output.error(f"Unsupported dubbing audio mode: {audio_mode}")
-        output.hint("Supported audio modes: replace, mix, duck")
-        return False
-    if (needs_video or get(config, "dubbing.fit_mode", "tempo") == "tempo") and not validate_ffmpeg():
-        return False
-    if rewrite and not validate_llm(config):
-        return False
-    return True
 
 
 def validate_process(config: dict, no_synthesize: bool = False) -> bool:

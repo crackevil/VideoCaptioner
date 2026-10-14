@@ -400,8 +400,7 @@ class TranscriptionInterface(QWidget):
         available_models = get_available_transcribe_models()
         for model in available_models:
             if (
-                model == TranscribeModelEnum.WHISPER_API
-                or model == TranscribeModelEnum.BIJIAN
+                model == TranscribeModelEnum.BIJIAN
                 or model == TranscribeModelEnum.JIANYING
             ):
                 self.model_menu.addActions(
@@ -467,16 +466,15 @@ class TranscriptionInterface(QWidget):
     def _on_transcript_finished(self, task: TranscribeTask):
         """转录完成处理"""
         self.is_processing = False
-        if task.need_next_task:
-            self.finished.emit(task.output_path, task.file_path)
+        self.finished.emit(task.output_path, task.file_path)
 
-            InfoBar.success(
-                self.tr("转录完成"),
-                self.tr("开始字幕优化..."),
-                duration=INFOBAR_DURATION_SUCCESS,
-                position=InfoBarPosition.BOTTOM,
-                parent=self.parent(),
-            )
+        InfoBar.success(
+            self.tr("转录完成"),
+            self.tr("字幕文件已生成：") + str(task.output_path),
+            duration=INFOBAR_DURATION_SUCCESS,
+            position=InfoBarPosition.BOTTOM,
+            parent=self.parent(),
+        )
 
     def _on_file_select(self):
         """文件选择处理"""
