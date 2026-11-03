@@ -30,14 +30,25 @@ def _configure_stdio() -> None:
 
 
 
+def _parse_output_formats_arg(value: str) -> List[str]:
+    """argparse type: parse comma-separated output formats."""
+    from videocaptioner.cli.validators import parse_output_formats
+    try:
+        return parse_output_formats(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _add_output_options(parser: argparse.ArgumentParser) -> None:
     """Add output-related options."""
     group = parser.add_argument_group("Output options")
     group.add_argument("-o", "--output", metavar="PATH", help="Output file or directory path")
     group.add_argument(
         "--format",
-        choices=["srt", "ass", "txt", "json"],
-        help="Output subtitle format (default: srt)",
+        metavar="FORMATS",
+        type=_parse_output_formats_arg,
+        help="Comma-separated output subtitle formats: srt, ass, txt, json "
+             "(default: srt). Example: --format srt,txt",
     )
 
 

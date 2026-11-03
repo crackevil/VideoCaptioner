@@ -10,6 +10,25 @@ from videocaptioner.cli.config import get
 from videocaptioner.cli.validators import validate_transcribe
 
 
+def _resolve_output_paths(output_arg: str | None, input_path: Path, formats: list[str]) -> list[str]:
+    """Build one output path per requested format."""
+    if output_arg:
+        out = Path(output_arg)
+        # If output is a directory, auto-generate filenames inside it
+        if out.is_dir() or output_arg.endswith(("/", os.sep)):
+            out.mkdir(parents=True, exist_ok=True)
+            return [str(out / f"{input_path.stem}.{fmt}") for fmt in formats]
+        # Auto-append format extension if no extension given
+        if not out.suffix:
+            return [f"{output_arg}.{fmt}" for fmt in formats]
+        # Keep an explicitly named file for a single format; otherwise derive
+        # sibling paths by swapping the extension for each format.
+        if len(formats) == 1:
+            return [output_arg]
+        return [str(out.with_suffix(f".{fmt}")) for fmt in formats]
+    return [str(input_path.with_suffix(f".{fmt}")) for fmt in formats]
+
+
 def run(args: Namespace, config: dict) -> int:
     from videocaptioner.cli.validators import validate_media_input
 
@@ -25,28 +44,22 @@ def run(args: Namespace, config: dict) -> int:
     if not validate_transcribe(config):
         return EXIT.USAGE_ERROR
 
-    # Determine output path
-    out_fmt = get(config, "output.format", "srt")
-    if args.output:
-        out = Path(args.output)
-        # If output is a directory, auto-generate filename inside it
-        if out.is_dir() or str(args.output).endswith("/"):
-            out.mkdir(parents=True, exist_ok=True)
-            output_path = str(out / f"{input_path.stem}.{out_fmt}")
-        else:
-            # Auto-append format extension if no extension given
-            if not out.suffix:
-                output_path = f"{args.output}.{out_fmt}"
-            else:
-                output_path = args.output
-    else:
-        output_path = str(input_path.with_suffix(f".{out_fmt}"))
+    # Determine output paths (one per requested format)
+    from videocaptioner.cli.validators import parse_output_formats, validate_output_format
 
-    # Validate output format
-    from videocaptioner.cli.validators import validate_output_format
-    err = validate_output_format(Path(output_path))
-    if err is not None:
-        return err
+    try:
+        out_formats = parse_output_formats(get(config, "output.format", "srt"))
+    except ValueError as exc:
+        output.error(str(exc))
+        return EXIT.USAGE_ERROR
+
+    output_paths = _resolve_output_paths(args.output, input_path, out_formats)
+
+    # Validate output formats
+    for output_path in output_paths:
+        err = validate_output_format(Path(output_path))
+        if err is not None:
+            return err
 
     asr_engine = get(config, "transcribe.asr", "faster-whisper")
     language = get(config, "transcribe.language", "auto")
@@ -144,14 +157,17 @@ def run(args: Namespace, config: dict) -> int:
         from videocaptioner.core.asr import transcribe
         asr_data = transcribe(audio_path, transcribe_config, callback=callback)
 
-        # Save output
-        asr_data.save(save_path=output_path)
+        # Save output in every requested format
+        for output_path in output_paths:
+            asr_data.save(save_path=output_path)
 
         if progress:
             n = len(asr_data.segments)
-            progress.finish(f"Transcription complete -> {output_path} ({n} segment{'' if n == 1 else 's'})")
+            paths = ", ".join(output_paths)
+            progress.finish(f"Transcription complete -> {paths} ({n} segment{'' if n == 1 else 's'})")
         if quiet:
-            print(output_path)
+            for output_path in output_paths:
+                print(output_path)
         return EXIT.SUCCESS
 
     except Exception as e:

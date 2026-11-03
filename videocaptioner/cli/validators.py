@@ -15,6 +15,41 @@ AUDIO_EXTENSIONS = frozenset({"flac", "m4a", "mp3", "wav", "ogg", "opus", "aac",
 VIDEO_EXTENSIONS = frozenset({"mp4", "mkv", "avi", "mov", "webm", "flv", "wmv", "ts", "m4v", "mpg", "mpeg"})
 SUBTITLE_EXTENSIONS = frozenset({".srt", ".ass", ".vtt"})
 OUTPUT_EXTENSIONS = frozenset({".srt", ".ass", ".txt", ".json"})
+OUTPUT_FORMATS = tuple(sorted(ext.lstrip(".") for ext in OUTPUT_EXTENSIONS))
+
+
+def parse_output_formats(value) -> list[str]:
+    """Normalize an output.format value into an ordered list of unique formats.
+
+    Accepts either a comma-separated string (``"srt,txt"``) or a sequence of
+    strings. Raises ValueError when no valid format is found.
+    """
+    if value is None:
+        items = ["srt"]
+    elif isinstance(value, str):
+        items = value.split(",")
+    elif isinstance(value, (list, tuple, set)):
+        items = list(value)
+    else:
+        raise ValueError(f"Invalid output format: {value!r}")
+
+    formats: list[str] = []
+    for item in items:
+        fmt = str(item).strip().lower()
+        if not fmt or fmt in formats:
+            continue
+        formats.append(fmt)
+
+    if not formats:
+        raise ValueError("No output format specified")
+
+    unsupported = [fmt for fmt in formats if fmt not in OUTPUT_FORMATS]
+    if unsupported:
+        raise ValueError(
+            f"Unsupported output format(s): {', '.join(unsupported)} "
+            f"(supported: {', '.join(OUTPUT_FORMATS)})"
+        )
+    return formats
 
 
 def resolve_layout(cli_name: str):

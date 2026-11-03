@@ -70,6 +70,13 @@ def run(args: Namespace, config: dict) -> int:
     else:
         out_dir = path.parent
 
+    from videocaptioner.cli.validators import parse_output_formats
+    try:
+        out_formats = parse_output_formats(get(config, "output.format", "srt"))
+    except ValueError as exc:
+        output.error(str(exc))
+        return EXIT.USAGE_ERROR
+
     total_steps = 2 + (0 if no_synthesize else 1) + (1 if do_dub else 0)
     current_step = 1
     final_output_path = _resolve_final_output_path(out_arg, out_dir, path, do_dub, no_synthesize, is_audio_input)
@@ -78,13 +85,13 @@ def run(args: Namespace, config: dict) -> int:
     # Step 1: Transcribe
     if not quiet:
         output.info(f"Step {current_step}/{total_steps}: Transcribing...")
-    subtitle_path = str(out_dir / f"{path.stem}.srt")
+    subtitle_path = str(out_dir / f"{path.stem}.{out_formats[0]}")
 
     # Word timestamps are useful for semantic splitting/optimization, but bad for
     # direct dubbing because they create word-level TTS fragments.
     need_word_ts = not (no_optimize and no_split)
     tr_args = Namespace(
-        input=str(path), output=subtitle_path, format="srt", word_timestamps=need_word_ts,
+        input=str(path), output=subtitle_path, format=out_formats, word_timestamps=need_word_ts,
         verbose=verbose, quiet=quiet, config=getattr(args, "config", None),
         asr=getattr(args, "asr", None), language=getattr(args, "language", None),
         fw_model=None, fw_device=None, fw_vad_method=None, fw_vad_threshold=None,

@@ -50,7 +50,12 @@ videocaptioner transcribe <文件> [选项]
 | `--word-timestamps` | 输出词级时间戳（配合字幕断句使用） |
 | `--whisper-model` | WhisperCpp 模型名（默认 large-v2） |
 | `-o PATH` | 输出文件或目录路径 |
-| `--format` | 输出格式：`srt`(默认) `ass` `txt` `json` |
+| `--format` | 输出格式：`srt`(默认) `ass` `txt` `json`。可用逗号同时指定多个格式，如 `--format srt,txt` |
+
+```bash
+# 同时输出 SRT 和 TXT
+videocaptioner transcribe video.mp4 --asr bijian --format srt,txt -o ./subtitles/
+```
 
 ---
 
