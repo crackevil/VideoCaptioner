@@ -51,6 +51,16 @@ class LanguageSerializer(ConfigSerializer):
         return Language(QLocale(value)) if value != "Auto" else Language.AUTO
 
 
+class TranscribeOutputFormatSerializer(EnumSerializer):
+    """Fall back to SRT for removed legacy output formats (ASS/VTT)."""
+
+    def deserialize(self, value):
+        try:
+            return TranscribeOutputFormatEnum(value)
+        except ValueError:
+            return TranscribeOutputFormatEnum.SRT
+
+
 class PlatformAwareTranscribeModelValidator(OptionsValidator):
     """平台相关的转录模型验证器，在 macOS 上自动过滤掉 FasterWhisper"""
 
@@ -90,7 +100,7 @@ class Config(QConfig):
         "OutputFormat",
         TranscribeOutputFormatEnum.SRT,
         OptionsValidator(TranscribeOutputFormatEnum),
-        EnumSerializer(TranscribeOutputFormatEnum),
+        TranscribeOutputFormatSerializer(TranscribeOutputFormatEnum),
     )
     transcribe_language = OptionsConfigItem(
         "Transcribe",

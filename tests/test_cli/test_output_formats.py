@@ -17,7 +17,7 @@ class TestParseOutputFormats:
         assert parse_output_formats("srt,txt") == ["srt", "txt"]
 
     def test_whitespace_and_case(self):
-        assert parse_output_formats(" SRT , Json ") == ["srt", "json"]
+        assert parse_output_formats(" SRT , TXT ") == ["srt", "txt"]
 
     def test_sequence(self):
         assert parse_output_formats(["txt", "srt"]) == ["txt", "srt"]
@@ -28,9 +28,10 @@ class TestParseOutputFormats:
     def test_none_defaults_to_srt(self):
         assert parse_output_formats(None) == ["srt"]
 
-    def test_rejects_unsupported(self):
+    @pytest.mark.parametrize("fmt", ["ass", "vtt", "json", "mp4"])
+    def test_rejects_unsupported(self, fmt):
         with pytest.raises(ValueError):
-            parse_output_formats("srt,mp4")
+            parse_output_formats(f"srt,{fmt}")
 
     def test_rejects_empty(self):
         with pytest.raises(ValueError):
@@ -75,6 +76,6 @@ class TestResolveOutputPaths:
         assert paths == [str(tmp_path / "custom.srt"), str(tmp_path / "custom.txt")]
 
     def test_single_format_keeps_explicit_path(self, tmp_path):
-        out = tmp_path / "custom.ass"
+        out = tmp_path / "custom.srt"
         paths = _resolve_output_paths(str(out), Path("/videos/demo.mp4"), ["srt"])
         assert paths == [str(out)]

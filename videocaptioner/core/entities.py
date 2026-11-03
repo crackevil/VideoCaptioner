@@ -72,9 +72,6 @@ class OutputSubtitleFormatEnum(Enum):
     """字幕输出格式"""
 
     SRT = "srt"
-    ASS = "ass"
-    VTT = "vtt"
-    JSON = "json"
     TXT = "txt"
 
 
@@ -82,8 +79,6 @@ class TranscribeOutputFormatEnum(Enum):
     """转录输出格式"""
 
     SRT = "SRT"
-    ASS = "ASS"
-    VTT = "VTT"
     TXT = "TXT"
     ALL = "All"
 

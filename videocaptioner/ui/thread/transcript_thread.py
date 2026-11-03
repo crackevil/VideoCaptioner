@@ -122,16 +122,15 @@ class TranscriptThread(QThread):
             # 根据选择的格式导出
             if output_format_enum == TranscribeOutputFormatEnum.ALL:
                 formats_to_export = [
-                    fmt.value.lower()
-                    for fmt in TranscribeOutputFormatEnum
-                    if fmt != TranscribeOutputFormatEnum.ALL
+                    TranscribeOutputFormatEnum.SRT.value.lower(),
+                    TranscribeOutputFormatEnum.TXT.value.lower(),
                 ]
             else:
                 formats_to_export = [output_format_enum.value.lower()]
 
             if self.task.need_next_task:
                 formats_to_export.append(TranscribeOutputFormatEnum.SRT.value.lower())
-            formats_to_export = list(set(formats_to_export))
+            formats_to_export = list(dict.fromkeys(formats_to_export))
 
             # 保存字幕文件
             for fmt in formats_to_export:

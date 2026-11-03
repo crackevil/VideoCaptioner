@@ -382,15 +382,20 @@ class TestFormatConversionEdgeCases:
             assert "Hello" in srt  # 所有模式都应显示原文
 
     def test_json_large_dataset(self):
-        """测试大数据集JSON转换"""
-        segments = [
-            ASRDataSeg(f"Text{i}", i * 1000, (i + 1) * 1000) for i in range(1000)
-        ]
-        asr_data = ASRData(segments)
-        json_data = asr_data.to_json()
-        assert len(json_data) == 1000
-        assert "1" in json_data
-        assert "1000" in json_data
+        """测试大数据集JSON解析"""
+        json_data = {
+            str(i): {
+                "start_time": i * 1000,
+                "end_time": (i + 1) * 1000,
+                "original_subtitle": f"Text{i}",
+                "translated_subtitle": "",
+            }
+            for i in range(1, 1001)
+        }
+        asr_data = ASRData.from_json(json_data)
+        assert len(asr_data.segments) == 1000
+        assert asr_data.segments[0].text == "Text1"
+        assert asr_data.segments[-1].text == "Text1000"
 
     def test_txt_multiline_segments(self):
         """测试多行文本转换"""
@@ -412,6 +417,20 @@ class TestFileIOEdgeCases:
         asr_data = ASRData(segments)
 
         with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="Unsupported file extension"):
+                asr_data.save(temp_path)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    @pytest.mark.parametrize("suffix", [".ass", ".vtt", ".json"])
+    def test_save_rejects_removed_output_formats(self, suffix):
+        """测试已移除的输出格式不再支持保存"""
+        asr_data = ASRData([ASRDataSeg("Test", 0, 1000)])
+
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
             temp_path = f.name
 
         try:

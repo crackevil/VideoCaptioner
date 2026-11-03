@@ -47,7 +47,7 @@ def _add_output_options(parser: argparse.ArgumentParser) -> None:
         "--format",
         metavar="FORMATS",
         type=_parse_output_formats_arg,
-        help="Comma-separated output subtitle formats: srt, ass, txt, json "
+        help="Comma-separated output subtitle formats: srt, txt "
              "(default: srt). Example: --format srt,txt",
     )
 

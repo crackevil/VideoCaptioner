@@ -78,7 +78,7 @@ features:
 
   - icon: 🎨
     title: Professional Subtitle Styles
-    details: Built-in style templates. Support hard/soft subtitles with SRT/ASS/VTT multi-format output.
+    details: Built-in style templates. Support hard/soft subtitles with SRT/TXT output.
 
   - icon: 🔧
     title: Advanced Features
@@ -151,7 +151,7 @@ chmod +x run.sh
 
 - Supports hard subtitles and soft subtitles
 - Rich subtitle style templates
-- Supports multiple subtitle formats (SRT, ASS, VTT, TXT)
+- Supports multiple subtitle formats (SRT, TXT)
 - Supports batch video processing
 
 ## Get Started
